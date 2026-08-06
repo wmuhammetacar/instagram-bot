@@ -168,11 +168,16 @@ Tarayıcıdan hesap durumu, günlük istatistikler, hedef havuzu ve son işlemle
 izlenebilir. Yalnızca yerel makinede dinler (`127.0.0.1`); uzaktan erişim
 gerekiyorsa ters proxy (Nginx + TLS) veya SSH tüneli kullanılmalıdır.
 
-Değişiklik yapan uçlar (login, engage, dm, hedef temizleme/kara liste, görev
-ekle/sil) için token koruması vardır: `config.yaml` içindeki
+Panelden hesap başına engajman, **unfollow** ve DM işleri başlatılabilir;
+görevler ve hedef havuzu yönetilebilir.
+
+Değişiklik yapan uçlar (login, engage, unfollow, dm, hedef temizleme/kara liste,
+görev ekle/sil) için token koruması vardır: `config.yaml` içindeki
 `system.dashboard_token` veya `IG_DASHBOARD_TOKEN` ortam değişkeni tanımlanırsa
 bu istekler `X-Auth-Token` başlığı ister. Token boşsa panel korumasızdır ve
-yalnızca `127.0.0.1` üzerinden kullanılmalıdır.
+yalnızca `127.0.0.1` üzerinden kullanılmalıdır. Token tanımlıysa panelde
+sağ üstteki 🔑 düğmesiyle token girilir; tarayıcıda `localStorage`'da saklanır
+ve her isteğe otomatik eklenir (401 alınırsa panel token'ı sorar).
 
 ---
 

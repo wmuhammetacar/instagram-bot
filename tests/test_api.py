@@ -85,6 +85,25 @@ class TestApiAuth(unittest.TestCase):
         r = c.post("/api/targets/clear", json={"status": "processed"})
         self.assertNotEqual(r.status_code, 401)
 
+    def test_status_exposes_unfollow_keys(self):
+        # Panel metresi ve raporu icin unfollows anahtari hem today hem limits'te olmali.
+        c = self._client("secret")
+        acc = c.get("/api/status").json()["accounts"][0]
+        self.assertIn("unfollows", acc["today"])
+        self.assertIn("unfollows", acc["limits"])
+        self.assertGreater(acc["limits"]["unfollows"], 0)  # follows'tan turetilir
+
+    def test_unfollow_requires_token(self):
+        c = self._client("secret")
+        r = c.post("/api/unfollow", json={"account": "a"})
+        self.assertEqual(r.status_code, 401)
+
+    def test_unfollow_unknown_account_404(self):
+        c = self._client("secret")
+        r = c.post("/api/unfollow", json={"account": "yok"},
+                   headers={"X-Auth-Token": "secret"})
+        self.assertEqual(r.status_code, 404)
+
 
 if __name__ == "__main__":
     unittest.main()

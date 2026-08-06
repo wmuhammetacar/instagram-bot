@@ -181,8 +181,9 @@ def main(argv=None):
             print(f"\n[{name}] @{config.account(name)['username']}"
                   f"  challenge={'EVET' if state.get('needs_challenge') else 'hayir'}"
                   f"  kisit={len(cooldowns)}")
-            print(f"  takip: {data['follows']} | begeni: {data['likes']} | yorum: {data['comments']} | "
-                  f"dm: {data['dms']} | paylasim: {data['posts']} | hata: {data['errors']}")
+            print(f"  takip: {data['follows']} | birak: {data['unfollows']} | begeni: {data['likes']} | "
+                  f"yorum: {data['comments']} | dm: {data['dms']} | paylasim: {data['posts']} | "
+                  f"hata: {data['errors']}")
         print(f"\nHedefler: bekleyen={repo.targets_count(status='pending')} "
               f"islenen={repo.targets_count(status='processed')}")
         return

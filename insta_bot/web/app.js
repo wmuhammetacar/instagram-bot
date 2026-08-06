@@ -10,15 +10,35 @@ function toast(msg, isError = false) {
   setTimeout(() => el.remove(), 4200);
 }
 
+function getToken() { return localStorage.getItem("ig_token") || ""; }
+function setToken(t) {
+  if (t) localStorage.setItem("ig_token", t);
+  else localStorage.removeItem("ig_token");
+}
+
 async function api(path, opts = {}) {
-  const res = await fetch(path, {
-    headers: { "Content-Type": "application/json" },
-    ...opts,
-  });
+  const { headers: extra, ...rest } = opts;
+  const headers = { "Content-Type": "application/json", ...(extra || {}) };
+  const tok = getToken();
+  if (tok) headers["X-Auth-Token"] = tok;
+  const res = await fetch(path, { headers, ...rest });
   const data = await res.json().catch(() => ({}));
+  if (res.status === 401) {
+    // Panel token korumali; kullanicidan iste ve bir kez tekrar dene.
+    const t = prompt("Panel korumalı. Erişim token'ını (X-Auth-Token) girin:");
+    if (t) { setToken(t); return api(path, opts); }
+  }
   if (!res.ok) throw new Error(data.detail || res.statusText);
   return data;
 }
+
+$("#token-btn").onclick = () => {
+  const cur = getToken();
+  const t = prompt("Panel erişim token'ı (boş bırakırsan kaldırılır):", cur);
+  if (t === null) return;
+  setToken(t.trim());
+  toast(t.trim() ? "Token kaydedildi" : "Token kaldırıldı");
+};
 
 function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({
@@ -75,7 +95,7 @@ async function loadOverview() {
       : rt.message || "Beklemede";
     const cooldowns = Object.keys(acc.cooldowns).length
       ? `<span class="badge cooldown" title="${esc(Object.keys(acc.cooldowns).join(", "))}">KISIT</span>` : "";
-    const meters = ["follows", "likes", "comments", "dms", "posts"].map((k) => {
+    const meters = ["follows", "unfollows", "likes", "comments", "dms", "posts"].map((k) => {
       const used = acc.today[k] || 0;
       const cap = (acc.limits && acc.limits[k]) || 0;
       const pct = cap ? Math.min(100, Math.round((used / cap) * 100)) : 0;
@@ -98,6 +118,7 @@ async function loadOverview() {
       <div class="card-actions">
         <button class="btn ghost small" data-login="${esc(acc.name)}">Giriş</button>
         <button class="btn small" data-engage="${esc(acc.name)}">Engajman</button>
+        <button class="btn ghost small" data-unfollow="${esc(acc.name)}">Unfollow</button>
         <button class="btn ghost small" data-dm="${esc(acc.name)}">DM</button>
       </div>
     </div>`;
@@ -118,6 +139,7 @@ document.addEventListener("click", async (e) => {
     return;
   }
   if (e.target.dataset.engage) openEngage(e.target.dataset.engage);
+  if (e.target.dataset.unfollow) openUnfollow(e.target.dataset.unfollow);
   if (e.target.dataset.dm) openDm(e.target.dataset.dm);
 });
 
@@ -147,6 +169,33 @@ function openEngage(account) {
         dry_run: $("#m-dry").checked,
       })});
       toast(account + ": engajman kuyruğa alındı");
+      $("#modal").classList.add("hidden");
+    } catch (err) { toast(err.message, true); }
+  };
+}
+
+function openUnfollow(account) {
+  $("#modal-title").textContent = `Unfollow — ${account}`;
+  $("#modal-body").innerHTML = `
+    <div class="field"><label>Bütçe (bırakılacak hesap sayısı)</label>
+      <input id="m-budget" class="input" type="number" placeholder="config: unfollow.budget"></div>
+    <div class="field"><label>Bekleme (gün) — takipten kaç gün sonra</label>
+      <input id="m-grace" class="input" type="number" placeholder="config: unfollow.grace_days"></div>
+    <div class="check-row">
+      <label><input type="checkbox" id="m-keep" checked> Geri takip edenleri koru</label>
+      <label><input type="checkbox" id="m-dry"> Kuru çalışma</label>
+    </div>`;
+  $("#modal").classList.remove("hidden");
+  $("#modal-ok").onclick = async () => {
+    try {
+      await api("/api/unfollow", { method: "POST", body: JSON.stringify({
+        account,
+        budget: parseInt($("#m-budget").value) || null,
+        grace_days: parseInt($("#m-grace").value) || null,
+        keep_followers: $("#m-keep").checked,
+        dry_run: $("#m-dry").checked,
+      })});
+      toast(account + ": unfollow kuyruğa alındı");
       $("#modal").classList.add("hidden");
     } catch (err) { toast(err.message, true); }
   };
@@ -291,7 +340,7 @@ async function loadReport() {
     const q = new URLSearchParams();
     if ($("#r-date").value) q.set("date", $("#r-date").value);
     const rep = await api("/api/report?" + q);
-    const typeLabels = { follows: "Takip", likes: "Beğeni", comments: "Yorum", dms: "DM", posts: "Paylaşım", errors: "Hata" };
+    const typeLabels = { follows: "Takip", unfollows: "Bırakma", likes: "Beğeni", comments: "Yorum", dms: "DM", posts: "Paylaşım", errors: "Hata" };
     const cards = Object.entries(rep.accounts).map(([name, d]) => {
       const rows = Object.keys(typeLabels).map((k) => {
         const cap = d.limits ? d.limits[k] : null;

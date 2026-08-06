@@ -37,6 +37,14 @@ class DmBody(BaseModel):
     dry_run: bool = False
 
 
+class UnfollowBody(BaseModel):
+    account: str
+    budget: int = None
+    grace_days: int = None
+    keep_followers: bool = True
+    dry_run: bool = False
+
+
 class TaskBody(BaseModel):
     name: str
     account: str
@@ -143,7 +151,11 @@ def create_app(config, repo):
             name = acc["name"]
             state = repo.state(name) or {}
             today = {k: repo.daily_limit(name, k, date) for k in
-                     ("follows", "likes", "comments", "dms", "posts")}
+                     ("follows", "unfollows", "likes", "comments", "dms", "posts")}
+            # unfollows limiti tanimsizsa follows butcesini kullanir (LimitEngine ile ayni mantik).
+            limits = dict(config.merged_account(name).get("limits", {}))
+            if not limits.get("unfollows"):
+                limits["unfollows"] = limits.get("follows", 0)
             accounts.append({
                 "name": name,
                 "username": acc["username"],
@@ -153,7 +165,7 @@ def create_app(config, repo):
                 "last_login": state.get("last_login"),
                 "last_error": state.get("last_error"),
                 "today": today,
-                "limits": config.merged_account(name).get("limits", {}),
+                "limits": limits,
                 "runtime": runtime.status(name),
                 "cooldowns": repo.active_cooldowns(name),
             })
@@ -198,6 +210,17 @@ def create_app(config, repo):
             Runner(config, repo, logger, dry_run=body.dry_run).dm(
                 client, body.account, usernames=body.usernames,
                 list_file=body.list_file, budget=body.budget)
+        return spawn(body.account, work)
+
+    @app.post("/api/unfollow", dependencies=guarded)
+    def api_unfollow(body: UnfollowBody):
+        if not config.account(body.account):
+            raise HTTPException(404, "Hesap yok")
+        def work():
+            client = connect_safe(body.account)
+            Runner(config, repo, logger, dry_run=body.dry_run).unfollow(
+                client, body.account, budget=body.budget,
+                grace_days=body.grace_days, keep_followers=body.keep_followers)
         return spawn(body.account, work)
 
     @app.get("/api/targets")

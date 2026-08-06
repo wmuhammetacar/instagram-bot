@@ -14,15 +14,21 @@ class Metrics:
             name = acc["name"]
             since = f"{date} 00:00:00"
             stats = self.repo.action_stats(name, since=since)
-            types = {"follows": 0, "likes": 0, "comments": 0, "dms": 0, "posts": 0, "errors": 0}
+            types = {"follows": 0, "unfollows": 0, "likes": 0, "comments": 0,
+                     "dms": 0, "posts": 0, "errors": 0}
+            # actions tablosu tekil aksiyon adi yazar (follow/unfollow/like/...);
+            # rapor ve limitler cogul anahtar kullanir. Esitle:
+            action_map = {"follow": "follows", "unfollow": "unfollows", "like": "likes",
+                          "comment": "comments", "dm": "dms", "post": "posts"}
             for row in stats:
-                if row["action_type"] in types:
+                key = action_map.get(row["action_type"], row["action_type"])
+                if key in types:
                     if row["status"] == "fail":
                         types["errors"] += row["c"]
                     elif row["status"] == "ok":
-                        types[row["action_type"]] += row["c"]
+                        types[key] += row["c"]
             types["limits"] = {k: self.repo.daily_limit(name, k, date) for k in
-                               ("follows", "likes", "comments", "dms", "posts")}
+                               ("follows", "unfollows", "likes", "comments", "dms", "posts")}
             result[name] = types
         return {"date": date, "accounts": result}
 
@@ -37,7 +43,7 @@ class Metrics:
         for name, data in summary["accounts"].items():
             lines.append(f"## {name}")
             lines.append("")
-            for k in ("follows", "likes", "comments", "dms", "posts"):
+            for k in ("follows", "unfollows", "likes", "comments", "dms", "posts"):
                 lines.append(f"- {k}: {data[k]}")
             lines.append(f"- hata: {data['errors']}")
             limits = data["limits"]

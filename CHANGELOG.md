@@ -14,8 +14,17 @@ Bu proje [Semantic Versioning](https://semver.org/lang/tr/) kurallarını takip 
   (`system.dashboard_token` / `IG_DASHBOARD_TOKEN`).
 - Aktivite pencereleri için saat dilimi (timezone) desteği.
 - Hedefleme: `skip_mutual` filtresi (bizi zaten takip edenleri atla).
+- Web paneli: unfollow işi başlatma (buton + modal), `unfollow` görev tipi,
+  günlük unfollow metresi ve raporda "Bırakma" satırı.
+- Web paneli: 🔑 token düğmesi — token `localStorage`'da saklanır, her isteğe
+  `X-Auth-Token` olarak eklenir, 401'de otomatik sorulur (token korumalı panel
+  artık arayüzden de kullanılabilir).
 
 ### Düzeltmeler
+
+- Rapor/durum aksiyon sayaçları her zaman 0 gösteriyordu: `actions` tablosu tekil
+  aksiyon adı (`follow`) yazarken rapor çoğul anahtar (`follows`) beklediğinden
+  eşleşme olmuyordu. Eşleme eklendi.
 
 - `session.call` retry döngüsü: `except ... as exc` sonrası silinen `exc`e
   erişildiği için geçici/ağ hatalarında retry çalışmıyor, `UnboundLocalError`
