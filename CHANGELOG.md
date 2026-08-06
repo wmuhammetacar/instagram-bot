@@ -2,6 +2,46 @@
 
 Bu proje [Semantic Versioning](https://semver.org/lang/tr/) kurallarını takip eder.
 
+## [Yayımlanmamış]
+
+### Eklendi
+
+- **Unfollow motoru:** geçmişte takip edilip belirli bekleme süresi (`grace_days`)
+  sonrasında geri takip etmeyenleri otomatik bırakma. `keep_followers` ile geri
+  takip edenler korunur. `igbot unfollow` komutu, `config.yaml` `unfollow` bölümü,
+  zamanlayıcı `unfollow` aksiyonu ve günlük/saatlik `unfollows` limiti.
+- Web paneli değişiklik yapan uçlarına `X-Auth-Token` koruması
+  (`system.dashboard_token` / `IG_DASHBOARD_TOKEN`).
+- Aktivite pencereleri için saat dilimi (timezone) desteği.
+- Hedefleme: `skip_mutual` filtresi (bizi zaten takip edenleri atla).
+- Web paneli: unfollow işi başlatma (buton + modal), `unfollow` görev tipi,
+  günlük unfollow metresi ve raporda "Bırakma" satırı.
+- Web paneli: 🔑 token düğmesi — token `localStorage`'da saklanır, her isteğe
+  `X-Auth-Token` olarak eklenir, 401'de otomatik sorulur (token korumalı panel
+  artık arayüzden de kullanılabilir).
+
+### Düzeltmeler
+
+- Rapor/durum aksiyon sayaçları her zaman 0 gösteriyordu: `actions` tablosu tekil
+  aksiyon adı (`follow`) yazarken rapor çoğul anahtar (`follows`) beklediğinden
+  eşleşme olmuyordu. Eşleme eklendi.
+- Panel saatlik grafiği (`/api/hourly`, `hourly_series`) aynı tekil/çoğul
+  uyuşmazlığı yüzünden hep 0 dönüyordu; `action_type` tekile normalize ediliyor.
+- `scrape --type user --out *.csv`: tek sözlük sonucu CSV yazarken `data[0]`
+  ile çöküyordu; sözlük artık listeye sarılıyor.
+
+- `session.call` retry döngüsü: `except ... as exc` sonrası silinen `exc`e
+  erişildiği için geçici/ağ hatalarında retry çalışmıyor, `UnboundLocalError`
+  fırlıyordu. Giderildi.
+- `db.hourly_actions`: olmayan `hour` sütununa başvurduğu için panel saatlik
+  grafiği çöküyordu; saat `created_at`ten türetiliyor.
+- Panel token karşılaştırması sabit zamanlı (`secrets.compare_digest`).
+- `.env` ayrıştırma: değerdeki çevreleyen tırnaklar ve `export` öneki artık
+  doğru işleniyor.
+- Zamanlayıcı: aynı güne ait en erken vakit seçiliyor; görev kilidi iş bitene
+  kadar tutuluyor.
+- Engajman: beğeni + yorum aynı gönderiyi kullanır, medya hedef başına tek çekilir.
+
 ## [1.0.0] — 2026-08-06
 
 İlk ticari sürüm. Bu sürümde sistemi satılabilir ürün seviyesine taşıyan

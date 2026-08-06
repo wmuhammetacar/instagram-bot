@@ -233,6 +233,22 @@ class Repo:
         params.append(limit)
         return self._query(sql, params)
 
+    def unfollow_candidates(self, account, before_ts, limit=200):
+        # Gercekten takip edilmis (follow/ok) ve henuz basariyla unfollow edilmemis,
+        # `before_ts`ten once takip edilen kullanicilar (en eskiden yeniye).
+        rows = self._query(
+            """SELECT target, MIN(created_at) AS followed_at FROM actions a
+               WHERE account=? AND action_type='follow' AND status='ok'
+                 AND target IS NOT NULL AND created_at <= ?
+                 AND NOT EXISTS (
+                     SELECT 1 FROM actions u
+                     WHERE u.account=a.account AND u.action_type='unfollow'
+                       AND u.status='ok' AND u.target=a.target)
+               GROUP BY target
+               ORDER BY followed_at ASC
+               LIMIT ?""", (account, before_ts, limit))
+        return [r["target"] for r in rows]
+
     def action_stats(self, account, since=None):
         sql = """SELECT action_type, status, COUNT(*) AS c FROM actions WHERE account=?"""
         params = [account]
@@ -243,13 +259,18 @@ class Repo:
         return self._query(sql, params)
 
     def hourly_actions(self, account, date, action_type):
+        # actions tablosunda ayri 'hour' sutunu yok; saati created_at'ten turetiyoruz
+        # (format: "YYYY-MM-DD HH:MM:SS" -> 12. karakterden itibaren 2 hane).
         rows = self._query(
-            """SELECT hour, COUNT(*) AS c FROM actions
-               WHERE account=? AND action_type=? AND created_at LIKE ?
+            """SELECT CAST(substr(created_at, 12, 2) AS INTEGER) AS hour, COUNT(*) AS c
+               FROM actions
+               WHERE account=? AND action_type=? AND status='ok' AND created_at LIKE ?
                GROUP BY hour""", (account, action_type, f"{date}%"))
         counts = [0] * 24
         for r in rows:
-            counts[r["hour"]] = r["c"]
+            h = r["hour"]
+            if h is not None and 0 <= h < 24:
+                counts[h] = r["c"]
         return counts
 
     # ---------------- limits ----------------

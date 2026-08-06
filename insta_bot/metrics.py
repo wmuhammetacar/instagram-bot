@@ -1,6 +1,10 @@
 import time
 
-from insta_bot.config import Config
+# actions tablosu tekil aksiyon adi yazar (follow/unfollow/like/comment/dm/post);
+# rapor, limitler ve panel cogul anahtar kullanir. Iki yon arasinda esleme:
+ACTION_TO_PLURAL = {"follow": "follows", "unfollow": "unfollows", "like": "likes",
+                    "comment": "comments", "dm": "dms", "post": "posts"}
+PLURAL_TO_ACTION = {v: k for k, v in ACTION_TO_PLURAL.items()}
 
 
 class Metrics:
@@ -16,21 +20,26 @@ class Metrics:
             name = acc["name"]
             since = f"{date} 00:00:00"
             stats = self.repo.action_stats(name, since=since)
-            types = {"follows": 0, "likes": 0, "comments": 0, "dms": 0, "posts": 0, "errors": 0}
+            types = {"follows": 0, "unfollows": 0, "likes": 0, "comments": 0,
+                     "dms": 0, "posts": 0, "errors": 0}
             for row in stats:
-                if row["action_type"] in types:
+                key = ACTION_TO_PLURAL.get(row["action_type"], row["action_type"])
+                if key in types:
                     if row["status"] == "fail":
                         types["errors"] += row["c"]
                     elif row["status"] == "ok":
-                        types[row["action_type"]] += row["c"]
+                        types[key] += row["c"]
             types["limits"] = {k: self.repo.daily_limit(name, k, date) for k in
-                               ("follows", "likes", "comments", "dms", "posts")}
+                               ("follows", "unfollows", "likes", "comments", "dms", "posts")}
             result[name] = types
         return {"date": date, "accounts": result}
 
     def hourly_series(self, account, date=None, action_type="follows"):
         date = date or time.strftime("%Y-%m-%d")
-        return self.repo.hourly_actions(account, date, action_type)
+        # Cagiran cogul ('follows') veya tekil ('follow') gonderebilir; actions
+        # tablosu tekil sakladigindan tekile normalize et.
+        singular = PLURAL_TO_ACTION.get(action_type, action_type)
+        return self.repo.hourly_actions(account, date, singular)
 
     def write_report(self, date=None, out=None):
         date = date or time.strftime("%Y-%m-%d")
@@ -39,7 +48,7 @@ class Metrics:
         for name, data in summary["accounts"].items():
             lines.append(f"## {name}")
             lines.append("")
-            for k in ("follows", "likes", "comments", "dms", "posts"):
+            for k in ("follows", "unfollows", "likes", "comments", "dms", "posts"):
                 lines.append(f"- {k}: {data[k]}")
             lines.append(f"- hata: {data['errors']}")
             limits = data["limits"]

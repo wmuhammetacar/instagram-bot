@@ -3,7 +3,6 @@ import json
 import logging
 import signal
 import sys
-import time
 from logging.handlers import RotatingFileHandler
 
 import uvicorn
@@ -59,7 +58,7 @@ def build_parser():
                          help="Hesap adi (accounts.yaml) veya 'all'")
     s_login.add_argument("--force", action="store_true", help="Kayitli oturumu atla")
 
-    s_status = sub.add_parser("status", help="Hesap ve gunluk istatistik durumu")
+    sub.add_parser("status", help="Hesap ve gunluk istatistik durumu")
     s_engage = sub.add_parser("engage", help="Engajman calistir (takip/begeni/yorum)")
     s_engage.add_argument("account")
     s_engage.add_argument("--hashtags", nargs="*")
@@ -70,6 +69,14 @@ def build_parser():
     s_engage.add_argument("--comment", action="store_true")
     s_engage.add_argument("--dry-run", action="store_true")
     s_engage.add_argument("--once", action="store_true", help="Koleksiyon sonrasi bir hedef isle, test icin")
+
+    s_unfollow = sub.add_parser("unfollow", help="Geri takip etmeyenleri birak (bekleme suresi sonrasi)")
+    s_unfollow.add_argument("account")
+    s_unfollow.add_argument("--budget", type=int)
+    s_unfollow.add_argument("--grace-days", type=int, help="Takipten kac gun sonra birakilsin")
+    s_unfollow.add_argument("--include-followers", action="store_true",
+                            help="Bizi geri takip edenleri de birak (varsayilan: korunur)")
+    s_unfollow.add_argument("--dry-run", action="store_true")
 
     s_dm = sub.add_parser("dm", help="DM gonder")
     s_dm.add_argument("account")
@@ -174,10 +181,11 @@ def main(argv=None):
             print(f"\n[{name}] @{config.account(name)['username']}"
                   f"  challenge={'EVET' if state.get('needs_challenge') else 'hayir'}"
                   f"  kisit={len(cooldowns)}")
-            print("  takip: %d | begeni: %d | yorum: %d | dm: %d | paylasim: %d | hata: %d" % (
-                data["follows"], data["likes"], data["comments"], data["dms"], data["posts"], data["errors"]))
-        print("\nHedefler: bekleyen=%d islenen=%d" % (
-            repo.targets_count(status="pending"), repo.targets_count(status="processed")))
+            print(f"  takip: {data['follows']} | birak: {data['unfollows']} | begeni: {data['likes']} | "
+                  f"yorum: {data['comments']} | dm: {data['dms']} | paylasim: {data['posts']} | "
+                  f"hata: {data['errors']}")
+        print(f"\nHedefler: bekleyen={repo.targets_count(status='pending')} "
+              f"islenen={repo.targets_count(status='processed')}")
         return
 
     if cmd == "engage":
@@ -193,6 +201,13 @@ def main(argv=None):
                       competitors=args.competitors, budget=args.budget,
                       like=not args.no_like, comment=args.comment,
                       max_follows=args.max_follows)
+        return
+
+    if cmd == "unfollow":
+        client = connect(args.account)
+        Runner(config, repo, logger, dry_run=args.dry_run).unfollow(
+            client, args.account, budget=args.budget, grace_days=args.grace_days,
+            keep_followers=False if args.include_followers else None)
         return
 
     if cmd == "dm":

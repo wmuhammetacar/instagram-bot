@@ -10,12 +10,15 @@ system:
   log_level: "INFO"
   timezone: "Europe/Istanbul"     # aktivite pencereleri bu saat diliminde hesaplanir
   session_dir: "data/sessions"    # oturum dosyalari (hesap basina)
+  # dashboard_token: ""           # bos ise web paneli korumasiz; uzak erisimde token tanimlayin
+                                   # (IG_DASHBOARD_TOKEN ortam degiskeni de kullanilabilir)
 
 # -----------------------------------------------------------
 # Gunluk butceler ve saatlik cap
 # -----------------------------------------------------------
 limits:
   follows: 60
+  unfollows: 60                  # bos/tanimsiz ise follows degeri kullanilir
   likes: 150
   comments: 20
   dms: 20
@@ -30,6 +33,7 @@ delays:
   spread: [10, 60]               # ek rastgele varyans (sn)
   actions:                       # aksiyon tipine ozel bekleme (sn)
     follow: [60, 180]
+    unfollow: [45, 150]
     like: [25, 90]
     comment: [90, 240]
     dm: [120, 300]
@@ -63,6 +67,14 @@ targeting:
     keyword_hit: 40              # biyo anahtar kelime eslesmesi
     follower_balance: 30         # takipci sayisi optimum kurbeye yakinligi
     recency: 30                  # son aktivite tarihi
+
+# -----------------------------------------------------------
+# Unfollow (geri takip etmeyenleri birakma) motoru
+# -----------------------------------------------------------
+unfollow:
+  grace_days: 3                  # takipten kac gun sonra birakmaya uygun olsun
+  keep_followers: true           # bizi geri takip edenleri koru (ekstra API cagrisi)
+  budget: 40                     # bir calismada birakilacak maksimum hesap
 
 # -----------------------------------------------------------
 # Yorum ve DM mesaj havuzlari ({username} degiskeni kullanilabilir)

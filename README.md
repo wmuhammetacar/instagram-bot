@@ -12,6 +12,7 @@ tek makinede birden fazla hesabı yönetebilen uçtan uca otomasyon sistemi.
 | Alan | Özellik |
 |---|---|
 | **Engajman** | Otomatik takip + beğeni + yorum (hashtag ve rakip hesap kaynaklı) |
+| **Unfollow** | Belirli bekleme süresi sonrası geri takip etmeyenleri otomatik bırakma (geri takip edenler korunur) |
 | **DM** | Rastgele mesaj havuzundan toplu / hedefli DM gönderimi |
 | **Veri çekme** | Takipçi, takip edilen, kullanıcı, hashtag, post verileri (JSON/CSV) |
 | **İçerik** | Fotoğraf, video, carousel ve story paylaşımı |
@@ -113,6 +114,12 @@ igbot engage hesap1 --hashtags python coding --competitors rakib_hesap --comment
 igbot engage hesap1 --dry-run    # gercek aksiyon yapmaz, simule eder
 igbot engage hesap1 --once       # tek hedef isler (test icin)
 
+# Unfollow (geri takip etmeyenleri birak)
+igbot unfollow hesap1                          # config.yaml'daki unfollow ayarlariyla
+igbot unfollow hesap1 --budget 30 --grace-days 5
+igbot unfollow hesap1 --include-followers      # bizi takip edenleri de birak
+igbot unfollow hesap1 --dry-run                # simule et
+
 # DM
 igbot dm hesap1 --usernames kullanici1 kullanici2
 igbot dm hesap1 --list kullanicilar.txt --budget 15
@@ -160,6 +167,17 @@ igbot --version
 Tarayıcıdan hesap durumu, günlük istatistikler, hedef havuzu ve son işlemler
 izlenebilir. Yalnızca yerel makinede dinler (`127.0.0.1`); uzaktan erişim
 gerekiyorsa ters proxy (Nginx + TLS) veya SSH tüneli kullanılmalıdır.
+
+Panelden hesap başına engajman, **unfollow** ve DM işleri başlatılabilir;
+görevler ve hedef havuzu yönetilebilir.
+
+Değişiklik yapan uçlar (login, engage, unfollow, dm, hedef temizleme/kara liste,
+görev ekle/sil) için token koruması vardır: `config.yaml` içindeki
+`system.dashboard_token` veya `IG_DASHBOARD_TOKEN` ortam değişkeni tanımlanırsa
+bu istekler `X-Auth-Token` başlığı ister. Token boşsa panel korumasızdır ve
+yalnızca `127.0.0.1` üzerinden kullanılmalıdır. Token tanımlıysa panelde
+sağ üstteki 🔑 düğmesiyle token girilir; tarayıcıda `localStorage`'da saklanır
+ve her isteğe otomatik eklenir (401 alınırsa panel token'ı sorar).
 
 ---
 
@@ -218,7 +236,7 @@ insta_bot/
   web/                  # panel arayuzu (HTML/JS/CSS)
   factory.py            # hesap baglanti fabrikasi
 data/                   # SQLite veritabani, oturumlar, loglar, ciktilar
-tests/                  # 40 birim testi
+tests/                  # birim testleri (engajman, unfollow, guvenlik, api, db, ...)
 ```
 
 ---
@@ -227,10 +245,14 @@ tests/                  # 40 birim testi
 
 ```bash
 source .venv/bin/activate
-python -m pytest tests -q     # 40 test — hepsi gecmeli
+pip install -e ".[dev]"       # pytest, httpx, ruff
+ruff check .                  # lint (kod kalitesi)
+python -m pytest              # birim testleri — hepsi gecmeli
 ```
 
-Her sürüm yayınlanmadan önce test suite'i yeşil olmalıdır.
+Her sürüm yayınlanmadan önce hem `ruff check .` hem de test suite'i yeşil
+olmalıdır. Her push ve PR'da GitHub Actions (`.github/workflows/ci.yml`)
+Python 3.9/3.11/3.12 üzerinde lint + testleri otomatik çalıştırır.
 
 ---
 

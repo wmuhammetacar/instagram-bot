@@ -20,8 +20,30 @@ classifiers = [
 igbot = "bot:main"
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0"]
+dev = ["pytest>=7.0", "httpx>=0.27", "ruff>=0.6"]  # httpx: FastAPI TestClient (test_api.py) icin
 
 [tool.setuptools]
 py-modules = ["bot"]
 packages = ["insta_bot"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 110
+target-version = "py39"
+
+[tool.ruff.lint]
+# E/F: pyflakes+pycodestyle, I: import siralama, B: bugbear, UP: pyupgrade,
+# C4: comprehension, SIM: sadelestirme
+select = ["E", "F", "I", "B", "UP", "C4", "SIM"]
+ignore = [
+    "E501",    # satir uzunlugu (line-length ile yonetilir)
+    "B008",    # FastAPI Depends/Header varsayilanlari cagri gerektirir
+    "SIM105",  # contextlib.suppress zorunlu degil
+    "SIM102",  # ic ice if okunabilirlik icin bilincli tercih
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E731"]  # testlerde lambda atamalarina izin

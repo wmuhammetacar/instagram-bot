@@ -30,16 +30,13 @@ class Runner:
         return cfg, DelayEngine(cfg), LimitEngine(cfg, self.repo), CooldownRegistry(self.repo)
 
     def _blocked(self, account_name, cooldowns, *keys):
-        for k in keys:
-            if cooldowns.active(account_name, k):
-                return True
-        return False
+        return any(cooldowns.active(account_name, k) for k in keys)
 
     def engage(self, client, account_name, hashtags=None, competitors=None,
                budget=None, like=True, comment=False, max_follows=None):
         cfg, delays, limits, cooldowns = self._engine(account_name)
         summary = {"follows": 0, "likes": 0, "comments": 0, "errors": 0, "skipped": 0}
-        if not in_window(cfg):
+        if not in_window(cfg, tz_name=self.config.get("system", {}).get("timezone")):
             self.logger.info(f"[{account_name}] Aktivite penceresi disinda, calisma atlandi")
             return summary
         if self._blocked(account_name, cooldowns, "sentry", "restriction"):
@@ -56,7 +53,7 @@ class Runner:
         done = 0
         primary_ok = True
         while done < budget and primary_ok:
-            if not in_window(cfg):
+            if not in_window(cfg, tz_name=self.config.get("system", {}).get("timezone")):
                 self.logger.info(f"[{account_name}] Aktivite penceresi kapandi, duruluyor")
                 break
             if self._blocked(account_name, cooldowns, "sentry", "restriction"):
@@ -78,24 +75,30 @@ class Runner:
                 continue
 
             actions_taken = 0
-            if like and like_ok:
+            comment_ok = comment and limits.check(account_name, "comments")
+            # Beğeni ve yorum ayni gonderiyi kullanir; medyayi tek sefer cek.
+            media_pk = None
+            if (like and like_ok) or comment_ok:
                 try:
                     medias = client.call("user_medias", pk, amount=1)
                     if medias:
                         media_pk = medias[0].pk
-                        if not self.repo.is_processed(account_name, "like", media_pk):
-                            if self._perform(client, "media_like", media_pk,
-                                            account_name=account_name, limit_key="likes", action_key="like",
-                                            target_pk=pk, delays=delays, limits=limits, actions_done=done):
-                                summary["likes"] += 1
-                                actions_taken += 1
-                                done += 1
-                                if done >= budget:
-                                    break
                     else:
                         self.logger.info(f"[{account_name}] @{username} paylasimi yok, atlaniyor")
                 except (UserNotFound, MediaNotFound, PrivateError, ClientError) as exc:
                     self._handle_target_error(account_name, pk, exc, summary, cooldowns)
+
+            if like and like_ok and media_pk is not None:
+                if not self.repo.is_processed(account_name, "like", media_pk):
+                    if self._perform(client, "media_like", media_pk,
+                                    account_name=account_name, limit_key="likes", action_key="like",
+                                    target_pk=pk, delays=delays, limits=limits, actions_done=done,
+                                    cooldowns=cooldowns):
+                        summary["likes"] += 1
+                        actions_taken += 1
+                        done += 1
+                        if done >= budget:
+                            break
 
             if follow_ok and pk not in followed_set:
                 if self._perform(client, "user_follow", pk,
@@ -111,30 +114,22 @@ class Runner:
                 else:
                     summary["errors"] += 1
 
-            if comment and limits.check(account_name, "comments"):
-                try:
-                    medias = client.call("user_medias", pk, amount=1)
-                    if medias:
-                        media_pk = medias[0].pk
-                        if not self.repo.is_processed(account_name, "comment", media_pk):
-                            text = self._render(
-                                random.choice(cfg.get("comments", {}).get("rotation", ["Iceriginiz cok guzel!"])),
-                                username)
-                            if self._perform(client, "media_comment", media_pk, text,
-                                            account_name=account_name, limit_key="comments", action_key="comment",
-                                            target_pk=pk, delays=delays, limits=limits, actions_done=done,
-                                            cooldowns=cooldowns):
-                                summary["comments"] += 1
-                                actions_taken += 1
-                                done += 1
-                                if done >= budget:
-                                    break
-                            else:
-                                summary["errors"] += 1
+            if comment_ok and media_pk is not None:
+                if not self.repo.is_processed(account_name, "comment", media_pk):
+                    text = self._render(
+                        random.choice(cfg.get("comments", {}).get("rotation", ["Iceriginiz cok guzel!"])),
+                        username)
+                    if self._perform(client, "media_comment", media_pk, text,
+                                    account_name=account_name, limit_key="comments", action_key="comment",
+                                    target_pk=pk, delays=delays, limits=limits, actions_done=done,
+                                    cooldowns=cooldowns):
+                        summary["comments"] += 1
+                        actions_taken += 1
+                        done += 1
+                        if done >= budget:
+                            break
                     else:
-                        self.logger.info(f"[{account_name}] @{username} paylasimi yok, atlaniyor")
-                except (UserNotFound, MediaNotFound, PrivateError, ClientError) as exc:
-                    self._handle_target_error(account_name, pk, exc, summary, cooldowns)
+                        summary["errors"] += 1
 
             self.repo.set_target_status(account_name, pk, "processed")
             if actions_taken == 0:
@@ -157,7 +152,8 @@ class Runner:
         except ClientError as exc:
             msg = str(exc).lower()
             if any(h in msg for h in RESTRICTION_HINTS):
-                cooldowns.set(account_name, "restriction", 6 * 3600, f"{fn}: {exc}")
+                if cooldowns is not None:
+                    cooldowns.set(account_name, "restriction", 6 * 3600, f"{fn}: {exc}")
                 self.logger.warning(f"[{account_name}] Kisit algilandi, 6 saatlik bekleme basladi: {exc}")
             self.repo.record_action(account_name, action_key, target_pk, "fail", str(exc))
             return False
@@ -218,6 +214,66 @@ class Runner:
                 summary["dms"] += 1
                 done += 1
         self.logger.info(f"[{account_name}] DM isi bitti: {summary}")
+        return summary
+
+    def unfollow(self, client, account_name, budget=None, grace_days=None, keep_followers=None):
+        """Gecmiste takip edilip belirli sureden sonra geri takip etmeyenleri birak.
+
+        keep_followers=True ise bizi geri takip edenler korunur (ekstra API cagrisi).
+        """
+        cfg, delays, limits, cooldowns = self._engine(account_name)
+        summary = {"unfollows": 0, "kept": 0, "errors": 0, "skipped": 0}
+        if not in_window(cfg, tz_name=self.config.get("system", {}).get("timezone")):
+            self.logger.info(f"[{account_name}] Aktivite penceresi disinda, unfollow atlandi")
+            return summary
+        if self._blocked(account_name, cooldowns, "sentry", "restriction"):
+            self.logger.warning(f"[{account_name}] Hesap kisitli (cooldown), unfollow atlandi")
+            summary["skipped"] = 1
+            return summary
+
+        ucfg = cfg.get("unfollow", {}) or {}
+        grace_days = grace_days if grace_days is not None else int(ucfg.get("grace_days", 3))
+        keep_followers = keep_followers if keep_followers is not None else bool(ucfg.get("keep_followers", True))
+        budget = budget if budget is not None else int(ucfg.get("budget", cfg.get("limits", {}).get("follows", 40)))
+
+        cutoff = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time() - grace_days * 86400))
+        candidates = self.repo.unfollow_candidates(account_name, cutoff, limit=max(budget * 3, 50))
+        if not candidates:
+            self.logger.info(f"[{account_name}] Unfollow icin uygun aday yok (bekleme: {grace_days} gun)")
+            return summary
+
+        done = 0
+        for pk in candidates:
+            if done >= budget or not limits.check(account_name, "unfollows"):
+                self.logger.info(f"[{account_name}] Unfollow butcesi/limiti doldu")
+                break
+            if not in_window(cfg, tz_name=self.config.get("system", {}).get("timezone")):
+                self.logger.info(f"[{account_name}] Aktivite penceresi kapandi, unfollow duruluyor")
+                break
+            if self._blocked(account_name, cooldowns, "sentry", "restriction"):
+                self.logger.warning(f"[{account_name}] Aksiyon kisiti algilandi, unfollow duruluyor")
+                break
+
+            if keep_followers and not self.dry_run:
+                try:
+                    friendship = client.call("user_friendship", pk)
+                    if getattr(friendship, "followed_by", False):
+                        summary["kept"] += 1
+                        continue
+                except (UserNotFound, ClientError) as exc:
+                    self.logger.warning(f"[{account_name}] @{pk} iliskisi alinamadi, atlaniyor: {exc}")
+                    summary["errors"] += 1
+                    continue
+
+            if self._perform(client, "user_unfollow", pk,
+                             account_name=account_name, limit_key="unfollows", action_key="unfollow",
+                             target_pk=pk, delays=delays, limits=limits, actions_done=done,
+                             cooldowns=cooldowns):
+                summary["unfollows"] += 1
+                done += 1
+            else:
+                summary["errors"] += 1
+        self.logger.info(f"[{account_name}] Unfollow bitti: {summary}")
         return summary
 
     @staticmethod

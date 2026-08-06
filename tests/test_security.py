@@ -101,6 +101,26 @@ class TestWindows(unittest.TestCase):
         cfg = {"windows": {"hours": [(time.localtime().tm_hour + 1) % 24]}}
         self.assertFalse(in_window(cfg))
 
+    def test_timezone_hour_used(self):
+        # Regresyon: pencere saati config timezone'una gore hesaplanmali.
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        tz = "Europe/Istanbul"
+        hour = datetime.now(ZoneInfo(tz)).hour
+        self.assertTrue(in_window({"windows": {"hours": [hour], "timezone": tz}}))
+        self.assertFalse(in_window({"windows": {"hours": [(hour + 1) % 24], "timezone": tz}}))
+
+    def test_tz_name_argument(self):
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        hour = datetime.now(ZoneInfo("UTC")).hour
+        self.assertTrue(in_window({"windows": {"hours": [hour]}}, tz_name="UTC"))
+
+    def test_explicit_now_overrides_tz(self):
+        # now verilirse timezone yok sayilir (geriye donuk uyumluluk).
+        struct = time.struct_time((2026, 8, 6, 14, 0, 0, 0, 0, -1))
+        self.assertTrue(in_window({"windows": {"hours": [14], "timezone": "UTC"}}, now=struct))
+
 
 if __name__ == "__main__":
     unittest.main()

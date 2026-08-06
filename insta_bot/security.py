@@ -4,7 +4,7 @@ import time
 
 LOGGER = logging.getLogger("insta_bot")
 
-ACTION_TYPES = ("follows", "likes", "comments", "dms", "posts")
+ACTION_TYPES = ("follows", "unfollows", "likes", "comments", "dms", "posts")
 
 
 class DelayEngine:
@@ -46,6 +46,9 @@ class LimitEngine:
     def __init__(self, cfg, repo):
         limits = cfg.get("limits", {})
         self.limits = {t: int(limits.get(t, 0)) for t in ACTION_TYPES}
+        # unfollows ayrica belirtilmediyse follows butcesini kullan (geriye donuk uyumluluk).
+        if not self.limits.get("unfollows"):
+            self.limits["unfollows"] = self.limits.get("follows", 0)
         self.hour_fraction = float(limits.get("hourly_cap_fraction", 0.2))
         self.repo = repo
 
@@ -104,5 +107,15 @@ def in_window(account_cfg, now=None, tz_name=None):
     hours = active_windows(account_cfg)
     if not hours:
         return True
-    now = now or time.localtime()
-    return now.tm_hour in hours
+    if now is not None:
+        return now.tm_hour in hours
+    windows = account_cfg.get("windows") or {}
+    tz_name = windows.get("timezone") or tz_name
+    if tz_name:
+        try:
+            from datetime import datetime
+            from zoneinfo import ZoneInfo
+            return datetime.now(ZoneInfo(tz_name)).hour in hours
+        except Exception:
+            pass
+    return time.localtime().tm_hour in hours

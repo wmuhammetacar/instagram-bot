@@ -1,5 +1,4 @@
 import math
-import time
 from datetime import date
 
 from instagrapi.exceptions import ClientError, MediaNotFound, UserNotFound
@@ -22,6 +21,15 @@ class TargetEngine:
         competitors = competitors if competitors is not None else sources.get("competitors", [])
         sample = int(targeting.get("competitors_sample", 200))
         my_uid = client.user_id
+
+        mutual_set = set()
+        if filters.get("skip_mutual"):
+            try:
+                followers = client.call("user_followers", my_uid, amount=0)
+                mutual_set = {str(pk) for pk in followers}
+                self.logger.info(f"[{account_name}] skip_mutual acik: {len(mutual_set)} takipci atlanacak")
+            except (UserNotFound, ClientError) as exc:
+                self.logger.warning(f"[{account_name}] Takipci listesi cekilemedi, skip_mutual atlandi: {exc}")
 
         rows = []
         seen = set()
@@ -50,16 +58,21 @@ class TargetEngine:
                     seen.add(u.pk)
                     rows.append(self._from_user(u, source=f"competitor:{comp}"))
 
-        new_rows, skipped = [], 0
+        new_rows, skipped_rows = [], []
         for row in rows:
-            verdict = self.judge(row, filters, my_uid)
+            verdict = self.judge(row, filters, my_uid, mutual_set)
             if verdict != "ok":
-                self.repo.set_target_status(account_name, row["pk"], verdict)
-                skipped += 1
+                row["status"] = verdict
+                skipped_rows.append(row)
                 continue
             row["score"] = self.score(row, targeting.get("scoring", {}), filters)
             row["status"] = "pending"
             new_rows.append(row)
+        # Elenenleri de kalici yaz; ON CONFLICT status'u korur (pending/processed ezilmez),
+        # yeni gorulen elenmisler bir daha degerlendirilmez.
+        if skipped_rows:
+            self.repo.upsert_targets(account_name, skipped_rows)
+        skipped = len(skipped_rows)
         if not new_rows:
             self.logger.info(f"[{account_name}] Yeni hedef bulunamadi (taranan: {len(rows)}, elenen: {skipped})")
             return {"added": 0, "total": 0}
@@ -86,8 +99,10 @@ class TargetEngine:
         }
 
     @staticmethod
-    def judge(row, filters, my_uid):
+    def judge(row, filters, my_uid, mutual_set=None):
         if row["pk"] == str(my_uid):
+            return "skipped"
+        if filters.get("skip_mutual") and mutual_set and row["pk"] in mutual_set:
             return "skipped"
         if row["followers"] < int(filters.get("min_followers", 0)):
             return "skipped"

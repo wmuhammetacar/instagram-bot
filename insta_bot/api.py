@@ -1,9 +1,11 @@
 import logging
+import os
+import secrets
 import threading
 import time
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -32,6 +34,14 @@ class DmBody(BaseModel):
     usernames: list = None
     list_file: str = None
     budget: int = None
+    dry_run: bool = False
+
+
+class UnfollowBody(BaseModel):
+    account: str
+    budget: int = None
+    grace_days: int = None
+    keep_followers: bool = True
     dry_run: bool = False
 
 
@@ -83,9 +93,24 @@ class ApiRuntime:
 
 def create_app(config, repo):
     app = FastAPI(title="Instagram Bot Kontrol Paneli", version="1.0")
+
+    # Token yapilandirilmissa degisiklik yapan uclar X-Auth-Token ister.
+    # (system.dashboard_token veya IG_DASHBOARD_TOKEN). Bos ise korumasiz — sadece
+    # 127.0.0.1'e baglanin; uzak erisim icin token tanimlayin.
+    auth_token = str(config.get("system", {}).get("dashboard_token", "")
+                     or os.getenv("IG_DASHBOARD_TOKEN", ""))
+    if not auth_token:
+        logger.warning("Web paneli token korumasiz calisiyor (sadece yerel kullanim onerilir)")
+
+    def require_auth(x_auth_token: str = Header(default="")):
+        # secrets.compare_digest: sabit zamanli karsilastirma (timing attack'e karsi).
+        if auth_token and not secrets.compare_digest(str(x_auth_token), auth_token):
+            raise HTTPException(401, "Gecersiz veya eksik token (X-Auth-Token)")
+
+    guarded = [Depends(require_auth)]
+
     runtime = ApiRuntime()
     factory = AccountFactory(config, repo, logger)
-    runner = Runner(config, repo, logger)
     metrics = Metrics(config, repo, logger)
     job_locks = {}
 
@@ -114,9 +139,9 @@ def create_app(config, repo):
         try:
             return factory.connect(name, force=force)
         except ChallengePending as exc:
-            raise HTTPException(409, str(exc))
+            raise HTTPException(409, str(exc)) from exc
         except AccountError as exc:
-            raise HTTPException(400, str(exc))
+            raise HTTPException(400, str(exc)) from exc
 
     @app.get("/api/status")
     def status():
@@ -126,7 +151,11 @@ def create_app(config, repo):
             name = acc["name"]
             state = repo.state(name) or {}
             today = {k: repo.daily_limit(name, k, date) for k in
-                     ("follows", "likes", "comments", "dms", "posts")}
+                     ("follows", "unfollows", "likes", "comments", "dms", "posts")}
+            # unfollows limiti tanimsizsa follows butcesini kullanir (LimitEngine ile ayni mantik).
+            limits = dict(config.merged_account(name).get("limits", {}))
+            if not limits.get("unfollows"):
+                limits["unfollows"] = limits.get("follows", 0)
             accounts.append({
                 "name": name,
                 "username": acc["username"],
@@ -136,7 +165,7 @@ def create_app(config, repo):
                 "last_login": state.get("last_login"),
                 "last_error": state.get("last_error"),
                 "today": today,
-                "limits": config.merged_account(name).get("limits", {}),
+                "limits": limits,
                 "runtime": runtime.status(name),
                 "cooldowns": repo.active_cooldowns(name),
             })
@@ -153,7 +182,7 @@ def create_app(config, repo):
             "scheduler": {"running": False},
         }
 
-    @app.post("/api/account/{name}/login")
+    @app.post("/api/account/{name}/login", dependencies=guarded)
     def account_login(name: str, force: bool = True):
         if not config.account(name):
             raise HTTPException(404, "Hesap yok")
@@ -163,7 +192,7 @@ def create_app(config, repo):
         spawn(name, work)
         return {"queued": True, "account": name}
 
-    @app.post("/api/engage")
+    @app.post("/api/engage", dependencies=guarded)
     def api_engage(body: EngageBody):
         def work():
             client = connect_safe(body.account)
@@ -174,7 +203,7 @@ def create_app(config, repo):
                 max_follows=body.max_follows)
         return spawn(body.account, work)
 
-    @app.post("/api/dm")
+    @app.post("/api/dm", dependencies=guarded)
     def api_dm(body: DmBody):
         def work():
             client = connect_safe(body.account)
@@ -183,16 +212,27 @@ def create_app(config, repo):
                 list_file=body.list_file, budget=body.budget)
         return spawn(body.account, work)
 
+    @app.post("/api/unfollow", dependencies=guarded)
+    def api_unfollow(body: UnfollowBody):
+        if not config.account(body.account):
+            raise HTTPException(404, "Hesap yok")
+        def work():
+            client = connect_safe(body.account)
+            Runner(config, repo, logger, dry_run=body.dry_run).unfollow(
+                client, body.account, budget=body.budget,
+                grace_days=body.grace_days, keep_followers=body.keep_followers)
+        return spawn(body.account, work)
+
     @app.get("/api/targets")
     def api_targets(account: str = None, status: str = None, limit: int = 100):
         return repo.targets(account=account, status=status, limit=limit)
 
-    @app.post("/api/targets/clear")
+    @app.post("/api/targets/clear", dependencies=guarded)
     def api_targets_clear(body: ClearTargetsBody):
         repo.clear_targets(account=body.account, status=body.status)
         return {"cleared": True, "status": body.status}
 
-    @app.post("/api/targets/blacklist")
+    @app.post("/api/targets/blacklist", dependencies=guarded)
     def api_targets_blacklist(body: BlacklistBody):
         repo.blacklist_add(body.account, body.pk, body.username)
         return {"blacklisted": True, "pk": body.pk}
@@ -213,7 +253,7 @@ def create_app(config, repo):
     def api_tasks():
         return repo.list_tasks()
 
-    @app.post("/api/tasks")
+    @app.post("/api/tasks", dependencies=guarded)
     def api_tasks_add(body: TaskBody):
         if not config.account(body.account):
             raise HTTPException(404, "Hesap yok")
@@ -224,7 +264,7 @@ def create_app(config, repo):
         repo.update_task(task_id, next_run=compute_next_run(body.schedule or {}))
         return {"id": task_id}
 
-    @app.post("/api/tasks/{task_id}/toggle")
+    @app.post("/api/tasks/{task_id}/toggle", dependencies=guarded)
     def api_tasks_toggle(task_id: int):
         task = next((t for t in repo.list_tasks() if t["id"] == task_id), None)
         if not task:
@@ -232,7 +272,7 @@ def create_app(config, repo):
         repo.update_task(task_id, enabled=0 if task["enabled"] else 1)
         return {"id": task_id, "enabled": not task["enabled"]}
 
-    @app.delete("/api/tasks/{task_id}")
+    @app.delete("/api/tasks/{task_id}", dependencies=guarded)
     def api_tasks_delete(task_id: int):
         repo.delete_task(task_id)
         return {"deleted": True}

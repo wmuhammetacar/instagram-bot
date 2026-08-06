@@ -20,20 +20,24 @@ def compute_next_run(schedule, last_run=None, now=None):
         return None
     days = [int(d) for d in days] if days else list(range(7))
     tm = time.localtime(now)
-    for hhmm in at_times:
-        h, m = (int(x) for x in hhmm.split(":"))
-        candidate = time.mktime((tm.tm_year, tm.tm_mon, tm.tm_mday, h, m, 0,
-                                 tm.tm_wday, tm.tm_yday, tm.tm_isdst))
-        if candidate > now and tm.tm_wday in days:
-            return candidate
+    if tm.tm_wday in days:
+        today_candidates = []
+        for hhmm in at_times:
+            h, m = (int(x) for x in hhmm.split(":"))
+            candidate = time.mktime((tm.tm_year, tm.tm_mon, tm.tm_mday, h, m, 0,
+                                     tm.tm_wday, tm.tm_yday, tm.tm_isdst))
+            if candidate > now:
+                today_candidates.append(candidate)
+        if today_candidates:
+            return min(today_candidates)
     for offset in range(1, 8):
         ft = time.localtime(now + offset * 86400)
         if ft.tm_wday not in days:
             continue
-        for hhmm in at_times:
-            h, m = (int(x) for x in hhmm.split(":"))
-            return time.mktime((ft.tm_year, ft.tm_mon, ft.tm_mday, h, m, 0,
-                                ft.tm_wday, ft.tm_yday, ft.tm_isdst))
+        earliest = min(int(hhmm.split(":")[0]) * 60 + int(hhmm.split(":")[1]) for hhmm in at_times)
+        h, m = divmod(earliest, 60)
+        return time.mktime((ft.tm_year, ft.tm_mon, ft.tm_mday, h, m, 0,
+                            ft.tm_wday, ft.tm_yday, ft.tm_isdst))
     return None
 
 
@@ -101,12 +105,14 @@ class Scheduler:
         if not lock.acquire(blocking=False):
             self.logger.info(f"Gorev atlandi ({task['account']} mesgul): {task['name']}")
             return
+        # Kilit gorev bitene kadar (_run icinde) tutulur; erken submit basarisizsa birak.
         try:
-            self._pool.submit(self._run, task)
-        finally:
+            self._pool.submit(self._run, task, lock)
+        except Exception:
             lock.release()
+            raise
 
-    def _run(self, task):
+    def _run(self, task, lock):
         now = time.strftime("%Y-%m-%d %H:%M:%S")
         self.logger.info(f"Gorev basladi: {task['name']} ({task['action']})")
         try:
@@ -118,6 +124,7 @@ class Scheduler:
         finally:
             self.repo.update_task(task["id"], next_run=compute_next_run(
                 json.loads(task["schedule"] or "{}"), last_run=time.time()))
+            lock.release()
 
     def run_task(self, task):
         params = json.loads(task["params"] or "{}") or {}
@@ -125,6 +132,8 @@ class Scheduler:
         action = task["action"]
         if action == "engage":
             self.runner.engage(client, task["account"], **params)
+        elif action == "unfollow":
+            self.runner.unfollow(client, task["account"], **params)
         elif action == "dm":
             self.runner.dm(client, task["account"], **params)
         elif action == "scrape":

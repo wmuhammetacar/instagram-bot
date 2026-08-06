@@ -60,8 +60,8 @@ class BotClient:
                 return self._finish(cl)
             except LoginRequired:
                 self.logger.warning(f"[{self.name}] Kayitli oturum gecersiz, yeniden giriliyor")
-            except ChallengeRequired:
-                raise ChallengePending(f"[{self.name}] Challenge dogrulamasi gerekiyor")
+            except ChallengeRequired as exc:
+                raise ChallengePending(f"[{self.name}] Challenge dogrulamasi gerekiyor") from exc
         cl = self._fresh_login(cl, verification_callback)
         cl.dump_settings(self.session_file)
         return self._finish(cl)
@@ -72,10 +72,11 @@ class BotClient:
         except TwoFactorRequired:
             code = self._ask("2FA dogrulama kodu", verification_callback)
             cl.login(self.username, self.password, verification_code=code)
-        except ChallengeRequired:
+        except ChallengeRequired as exc:
             self.repo.set_state(self.name, needs_challenge=1, last_error="challenge")
             raise ChallengePending(
-                f"[{self.name}] Instagram challenge istedi. Terminalde 'python bot.py login {self.name}' calistir.")
+                f"[{self.name}] Instagram challenge istedi. Terminalde 'python bot.py login {self.name}' calistir."
+            ) from exc
         return cl
 
     def _finish(self, cl):
@@ -102,21 +103,25 @@ class BotClient:
         raise AccountError(f"[{self.name}] {label} gerekli ama terminal interaktif degil")
 
     def call(self, fn, *args, retries=2, **kwargs):
+        # NOT: Python 3'te `except ... as exc` blogu bitince `exc` degiskeni silinir;
+        # bu yuzden son hatayi except icinde `last`e baglariz (disarida erisilemez).
         last = None
         for attempt in range(retries + 1):
             try:
                 return getattr(self.cl, fn)(*args, **kwargs)
             except TRANSIENT as exc:
+                last = exc
                 wait = int(getattr(exc, "wait_seconds", 0)) or (600 if attempt == 0 else 900)
                 self.logger.warning(f"[{self.name}] {type(exc).__name__}, {wait} sn bekleniyor")
                 time.sleep(wait)
-            except LoginRequired:
+            except LoginRequired as exc:
+                last = exc
                 self.logger.warning(f"[{self.name}] Oturum dusmus, yeniden giris deneniyor")
                 self.connect(force=True)
             except (requests.RequestException, TimeoutError, OSError) as exc:
+                last = exc
                 self.logger.warning(f"[{self.name}] Ag hatasi ({type(exc).__name__}), tekrar deneniyor")
                 time.sleep(15 * (attempt + 1))
-            except ClientError as exc:
+            except ClientError:
                 raise
-            last = exc
         raise AccountError(f"[{self.name}] {fn} islemi {retries + 1} denemede basarisiz: {last}")
