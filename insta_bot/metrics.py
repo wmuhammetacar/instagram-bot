@@ -1,5 +1,11 @@
 import time
 
+# actions tablosu tekil aksiyon adi yazar (follow/unfollow/like/comment/dm/post);
+# rapor, limitler ve panel cogul anahtar kullanir. Iki yon arasinda esleme:
+ACTION_TO_PLURAL = {"follow": "follows", "unfollow": "unfollows", "like": "likes",
+                    "comment": "comments", "dm": "dms", "post": "posts"}
+PLURAL_TO_ACTION = {v: k for k, v in ACTION_TO_PLURAL.items()}
+
 
 class Metrics:
     def __init__(self, config, repo, logger):
@@ -16,12 +22,8 @@ class Metrics:
             stats = self.repo.action_stats(name, since=since)
             types = {"follows": 0, "unfollows": 0, "likes": 0, "comments": 0,
                      "dms": 0, "posts": 0, "errors": 0}
-            # actions tablosu tekil aksiyon adi yazar (follow/unfollow/like/...);
-            # rapor ve limitler cogul anahtar kullanir. Esitle:
-            action_map = {"follow": "follows", "unfollow": "unfollows", "like": "likes",
-                          "comment": "comments", "dm": "dms", "post": "posts"}
             for row in stats:
-                key = action_map.get(row["action_type"], row["action_type"])
+                key = ACTION_TO_PLURAL.get(row["action_type"], row["action_type"])
                 if key in types:
                     if row["status"] == "fail":
                         types["errors"] += row["c"]
@@ -34,7 +36,10 @@ class Metrics:
 
     def hourly_series(self, account, date=None, action_type="follows"):
         date = date or time.strftime("%Y-%m-%d")
-        return self.repo.hourly_actions(account, date, action_type)
+        # Cagiran cogul ('follows') veya tekil ('follow') gonderebilir; actions
+        # tablosu tekil sakladigindan tekile normalize et.
+        singular = PLURAL_TO_ACTION.get(action_type, action_type)
+        return self.repo.hourly_actions(account, date, singular)
 
     def write_report(self, date=None, out=None):
         date = date or time.strftime("%Y-%m-%d")

@@ -65,6 +65,26 @@ class TestRepo(unittest.TestCase):
         self.assertEqual(series[14], 1)
         self.assertEqual(sum(series), 3)
 
+    def test_hourly_series_normalizes_plural(self):
+        # Regresyon: panel/metrics cogul ('follows') gonderir, actions tekil ('follow')
+        # saklar; hourly_series normalize etmezse hep 0 doner.
+        import time as _t
+
+        from insta_bot.metrics import Metrics
+        hour = int(_t.strftime("%H"))
+        date = _t.strftime("%Y-%m-%d")
+        self.repo._exec(
+            "INSERT INTO actions (account, action_type, target, status, created_at) "
+            f"VALUES ('a','follow','1','ok','{date} {hour:02d}:30:00')")
+
+        class Cfg:
+            def accounts(self):
+                return [{"name": "a"}]
+
+        m = Metrics(Cfg(), self.repo, None)
+        self.assertEqual(sum(m.hourly_series("a", action_type="follows")), 1)  # cogul
+        self.assertEqual(sum(m.hourly_series("a", action_type="follow")), 1)   # tekil de calisir
+
     def test_limits(self):
         self.repo.bump_limit("a", "follows", "2026-08-05", 10)
         self.repo.bump_limit("a", "follows", "2026-08-05", 10)

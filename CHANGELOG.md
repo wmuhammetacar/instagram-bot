@@ -25,6 +25,10 @@ Bu proje [Semantic Versioning](https://semver.org/lang/tr/) kurallarını takip 
 - Rapor/durum aksiyon sayaçları her zaman 0 gösteriyordu: `actions` tablosu tekil
   aksiyon adı (`follow`) yazarken rapor çoğul anahtar (`follows`) beklediğinden
   eşleşme olmuyordu. Eşleme eklendi.
+- Panel saatlik grafiği (`/api/hourly`, `hourly_series`) aynı tekil/çoğul
+  uyuşmazlığı yüzünden hep 0 dönüyordu; `action_type` tekile normalize ediliyor.
+- `scrape --type user --out *.csv`: tek sözlük sonucu CSV yazarken `data[0]`
+  ile çöküyordu; sözlük artık listeye sarılıyor.
 
 - `session.call` retry döngüsü: `except ... as exc` sonrası silinen `exc`e
   erişildiği için geçici/ağ hatalarında retry çalışmıyor, `UnboundLocalError`

@@ -109,13 +109,16 @@ class Scraper:
         path = Path(out)
         path.parent.mkdir(parents=True, exist_ok=True)
         if path.suffix.lower() == ".csv":
-            if not data:
+            # 'user' tipi tek bir sozluk dondurur; CSV icin listeye sar.
+            rows = data if isinstance(data, list) else [data]
+            rows = [r for r in rows if r]
+            if not rows:
                 path.write_text("", encoding="utf-8")
                 return
             with open(path, "w", newline="", encoding="utf-8") as fh:
-                writer = csv.DictWriter(fh, fieldnames=list(data[0].keys()))
+                writer = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
                 writer.writeheader()
-                writer.writerows(data)
+                writer.writerows(rows)
         else:
             path.write_text(json.dumps(data, ensure_ascii=False, indent=2,
                                        default=json_serial), encoding="utf-8")
