@@ -219,6 +219,66 @@ class Runner:
         self.logger.info(f"[{account_name}] DM isi bitti: {summary}")
         return summary
 
+    def unfollow(self, client, account_name, budget=None, grace_days=None, keep_followers=None):
+        """Gecmiste takip edilip belirli sureden sonra geri takip etmeyenleri birak.
+
+        keep_followers=True ise bizi geri takip edenler korunur (ekstra API cagrisi).
+        """
+        cfg, delays, limits, cooldowns = self._engine(account_name)
+        summary = {"unfollows": 0, "kept": 0, "errors": 0, "skipped": 0}
+        if not in_window(cfg, tz_name=self.config.get("system", {}).get("timezone")):
+            self.logger.info(f"[{account_name}] Aktivite penceresi disinda, unfollow atlandi")
+            return summary
+        if self._blocked(account_name, cooldowns, "sentry", "restriction"):
+            self.logger.warning(f"[{account_name}] Hesap kisitli (cooldown), unfollow atlandi")
+            summary["skipped"] = 1
+            return summary
+
+        ucfg = cfg.get("unfollow", {}) or {}
+        grace_days = grace_days if grace_days is not None else int(ucfg.get("grace_days", 3))
+        keep_followers = keep_followers if keep_followers is not None else bool(ucfg.get("keep_followers", True))
+        budget = budget if budget is not None else int(ucfg.get("budget", cfg.get("limits", {}).get("follows", 40)))
+
+        cutoff = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time() - grace_days * 86400))
+        candidates = self.repo.unfollow_candidates(account_name, cutoff, limit=max(budget * 3, 50))
+        if not candidates:
+            self.logger.info(f"[{account_name}] Unfollow icin uygun aday yok (bekleme: {grace_days} gun)")
+            return summary
+
+        done = 0
+        for pk in candidates:
+            if done >= budget or not limits.check(account_name, "unfollows"):
+                self.logger.info(f"[{account_name}] Unfollow butcesi/limiti doldu")
+                break
+            if not in_window(cfg, tz_name=self.config.get("system", {}).get("timezone")):
+                self.logger.info(f"[{account_name}] Aktivite penceresi kapandi, unfollow duruluyor")
+                break
+            if self._blocked(account_name, cooldowns, "sentry", "restriction"):
+                self.logger.warning(f"[{account_name}] Aksiyon kisiti algilandi, unfollow duruluyor")
+                break
+
+            if keep_followers and not self.dry_run:
+                try:
+                    friendship = client.call("user_friendship", pk)
+                    if getattr(friendship, "followed_by", False):
+                        summary["kept"] += 1
+                        continue
+                except (UserNotFound, ClientError) as exc:
+                    self.logger.warning(f"[{account_name}] @{pk} iliskisi alinamadi, atlaniyor: {exc}")
+                    summary["errors"] += 1
+                    continue
+
+            if self._perform(client, "user_unfollow", pk,
+                             account_name=account_name, limit_key="unfollows", action_key="unfollow",
+                             target_pk=pk, delays=delays, limits=limits, actions_done=done,
+                             cooldowns=cooldowns):
+                summary["unfollows"] += 1
+                done += 1
+            else:
+                summary["errors"] += 1
+        self.logger.info(f"[{account_name}] Unfollow bitti: {summary}")
+        return summary
+
     @staticmethod
     def _render(template, username):
         return template.replace("{username}", username)

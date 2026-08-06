@@ -2,6 +2,33 @@
 
 Bu proje [Semantic Versioning](https://semver.org/lang/tr/) kurallarını takip eder.
 
+## [Yayımlanmamış]
+
+### Eklendi
+
+- **Unfollow motoru:** geçmişte takip edilip belirli bekleme süresi (`grace_days`)
+  sonrasında geri takip etmeyenleri otomatik bırakma. `keep_followers` ile geri
+  takip edenler korunur. `igbot unfollow` komutu, `config.yaml` `unfollow` bölümü,
+  zamanlayıcı `unfollow` aksiyonu ve günlük/saatlik `unfollows` limiti.
+- Web paneli değişiklik yapan uçlarına `X-Auth-Token` koruması
+  (`system.dashboard_token` / `IG_DASHBOARD_TOKEN`).
+- Aktivite pencereleri için saat dilimi (timezone) desteği.
+- Hedefleme: `skip_mutual` filtresi (bizi zaten takip edenleri atla).
+
+### Düzeltmeler
+
+- `session.call` retry döngüsü: `except ... as exc` sonrası silinen `exc`e
+  erişildiği için geçici/ağ hatalarında retry çalışmıyor, `UnboundLocalError`
+  fırlıyordu. Giderildi.
+- `db.hourly_actions`: olmayan `hour` sütununa başvurduğu için panel saatlik
+  grafiği çöküyordu; saat `created_at`ten türetiliyor.
+- Panel token karşılaştırması sabit zamanlı (`secrets.compare_digest`).
+- `.env` ayrıştırma: değerdeki çevreleyen tırnaklar ve `export` öneki artık
+  doğru işleniyor.
+- Zamanlayıcı: aynı güne ait en erken vakit seçiliyor; görev kilidi iş bitene
+  kadar tutuluyor.
+- Engajman: beğeni + yorum aynı gönderiyi kullanır, medya hedef başına tek çekilir.
+
 ## [1.0.0] — 2026-08-06
 
 İlk ticari sürüm. Bu sürümde sistemi satılabilir ürün seviyesine taşıyan

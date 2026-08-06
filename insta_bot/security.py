@@ -4,7 +4,7 @@ import time
 
 LOGGER = logging.getLogger("insta_bot")
 
-ACTION_TYPES = ("follows", "likes", "comments", "dms", "posts")
+ACTION_TYPES = ("follows", "unfollows", "likes", "comments", "dms", "posts")
 
 
 class DelayEngine:
@@ -46,6 +46,9 @@ class LimitEngine:
     def __init__(self, cfg, repo):
         limits = cfg.get("limits", {})
         self.limits = {t: int(limits.get(t, 0)) for t in ACTION_TYPES}
+        # unfollows ayrica belirtilmediyse follows butcesini kullan (geriye donuk uyumluluk).
+        if not self.limits.get("unfollows"):
+            self.limits["unfollows"] = self.limits.get("follows", 0)
         self.hour_fraction = float(limits.get("hourly_cap_fraction", 0.2))
         self.repo = repo
 

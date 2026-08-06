@@ -12,6 +12,7 @@ tek makinede birden fazla hesabı yönetebilen uçtan uca otomasyon sistemi.
 | Alan | Özellik |
 |---|---|
 | **Engajman** | Otomatik takip + beğeni + yorum (hashtag ve rakip hesap kaynaklı) |
+| **Unfollow** | Belirli bekleme süresi sonrası geri takip etmeyenleri otomatik bırakma (geri takip edenler korunur) |
 | **DM** | Rastgele mesaj havuzundan toplu / hedefli DM gönderimi |
 | **Veri çekme** | Takipçi, takip edilen, kullanıcı, hashtag, post verileri (JSON/CSV) |
 | **İçerik** | Fotoğraf, video, carousel ve story paylaşımı |
@@ -112,6 +113,12 @@ igbot engage hesap1 --budget 20
 igbot engage hesap1 --hashtags python coding --competitors rakib_hesap --comment
 igbot engage hesap1 --dry-run    # gercek aksiyon yapmaz, simule eder
 igbot engage hesap1 --once       # tek hedef isler (test icin)
+
+# Unfollow (geri takip etmeyenleri birak)
+igbot unfollow hesap1                          # config.yaml'daki unfollow ayarlariyla
+igbot unfollow hesap1 --budget 30 --grace-days 5
+igbot unfollow hesap1 --include-followers      # bizi takip edenleri de birak
+igbot unfollow hesap1 --dry-run                # simule et
 
 # DM
 igbot dm hesap1 --usernames kullanici1 kullanici2

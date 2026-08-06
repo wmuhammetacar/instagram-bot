@@ -71,6 +71,14 @@ def build_parser():
     s_engage.add_argument("--dry-run", action="store_true")
     s_engage.add_argument("--once", action="store_true", help="Koleksiyon sonrasi bir hedef isle, test icin")
 
+    s_unfollow = sub.add_parser("unfollow", help="Geri takip etmeyenleri birak (bekleme suresi sonrasi)")
+    s_unfollow.add_argument("account")
+    s_unfollow.add_argument("--budget", type=int)
+    s_unfollow.add_argument("--grace-days", type=int, help="Takipten kac gun sonra birakilsin")
+    s_unfollow.add_argument("--include-followers", action="store_true",
+                            help="Bizi geri takip edenleri de birak (varsayilan: korunur)")
+    s_unfollow.add_argument("--dry-run", action="store_true")
+
     s_dm = sub.add_parser("dm", help="DM gonder")
     s_dm.add_argument("account")
     s_dm.add_argument("--usernames", nargs="*")
@@ -193,6 +201,13 @@ def main(argv=None):
                       competitors=args.competitors, budget=args.budget,
                       like=not args.no_like, comment=args.comment,
                       max_follows=args.max_follows)
+        return
+
+    if cmd == "unfollow":
+        client = connect(args.account)
+        Runner(config, repo, logger, dry_run=args.dry_run).unfollow(
+            client, args.account, budget=args.budget, grace_days=args.grace_days,
+            keep_followers=False if args.include_followers else None)
         return
 
     if cmd == "dm":

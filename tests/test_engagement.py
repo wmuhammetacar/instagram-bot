@@ -1,6 +1,6 @@
 import tempfile
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -86,6 +86,7 @@ class FakeClient:
         self.hashtag_medias = []
         self.calls = []
         self.call_errors = {}
+        self.friendships = {}
 
     def call(self, fn, *args, **kw):
         self.calls.append((fn, args))
@@ -100,8 +101,10 @@ class FakeClient:
             return {}
         if fn == "user_medias":
             return self.medias_by_user.get(args[0], [])
-        if fn in ("media_like", "user_follow", "media_comment", "direct_send",
-                  "user_info"):
+        if fn == "user_friendship":
+            return self.friendships.get(args[0])
+        if fn in ("media_like", "user_follow", "user_unfollow", "media_comment",
+                  "direct_send", "user_info"):
             return True
         return None
 
@@ -199,6 +202,58 @@ class TestRunner(unittest.TestCase):
         self.repo.bump_limit("testacc", "dms", datetime.now().strftime("%Y-%m-%d"), 0)
         summary = self.runner.dm(self.client, "testacc", usernames=["a", "b"])
         self.assertEqual(summary["dms"], 0)
+
+
+class TestUnfollow(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        base = Path(self.tmp.name)
+        (base / "config.yaml").write_text(CONFIG_YAML, encoding="utf-8")
+        (base / "accounts.yaml").write_text(ACCOUNTS_YAML, encoding="utf-8")
+        self.config = Config(base)
+        self.repo = Repo(":memory:")
+        self.runner = Runner(self.config, self.repo, None, dry_run=False)
+        self.runner.logger = type("L", (), {"info": lambda *a, **k: None,
+                                            "warning": lambda *a, **k: None,
+                                            "error": lambda *a, **k: None})()
+        self.client = FakeClient()
+        self.delay_patch = patch("insta_bot.security.DelayEngine.pause")
+        self.delay_patch.start()
+        self.addCleanup(self.delay_patch.stop)
+
+    def _seed_follow(self, pk, days_ago):
+        ts = (datetime.now() - timedelta(days=days_ago)).strftime("%Y-%m-%d %H:%M:%S")
+        self.repo._exec(
+            "INSERT INTO actions (account, action_type, target, status, created_at) "
+            "VALUES ('testacc','follow',?, 'ok', ?)", (str(pk), ts))
+
+    def test_unfollows_old_non_followers(self):
+        self._seed_follow("11", days_ago=10)
+        self._seed_follow("22", days_ago=1)  # bekleme suresi dolmadi
+        summary = self.runner.unfollow(self.client, "testacc", grace_days=3, keep_followers=False)
+        self.assertEqual(summary["unfollows"], 1)
+        unfollowed = [c for c in self.client.calls if c[0] == "user_unfollow"]
+        self.assertEqual(unfollowed, [("user_unfollow", ("11",))])
+
+    def test_keeps_followers_back(self):
+        self._seed_follow("11", days_ago=10)
+        self.client.friendships["11"] = SimpleNamespace(followed_by=True)
+        summary = self.runner.unfollow(self.client, "testacc", grace_days=3, keep_followers=True)
+        self.assertEqual(summary["unfollows"], 0)
+        self.assertEqual(summary["kept"], 1)
+
+    def test_not_reprocessed_after_unfollow(self):
+        self._seed_follow("11", days_ago=10)
+        self.runner.unfollow(self.client, "testacc", grace_days=3, keep_followers=False)
+        self.client.calls.clear()
+        summary = self.runner.unfollow(self.client, "testacc", grace_days=3, keep_followers=False)
+        self.assertEqual(summary["unfollows"], 0)
+
+    def test_respects_budget(self):
+        for i in range(5):
+            self._seed_follow(str(100 + i), days_ago=10)
+        summary = self.runner.unfollow(self.client, "testacc", budget=2, grace_days=3, keep_followers=False)
+        self.assertEqual(summary["unfollows"], 2)
 
 
 if __name__ == "__main__":

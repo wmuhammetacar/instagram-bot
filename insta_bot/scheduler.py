@@ -132,6 +132,8 @@ class Scheduler:
         action = task["action"]
         if action == "engage":
             self.runner.engage(client, task["account"], **params)
+        elif action == "unfollow":
+            self.runner.unfollow(client, task["account"], **params)
         elif action == "dm":
             self.runner.dm(client, task["account"], **params)
         elif action == "scrape":
