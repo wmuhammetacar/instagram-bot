@@ -102,21 +102,25 @@ class BotClient:
         raise AccountError(f"[{self.name}] {label} gerekli ama terminal interaktif degil")
 
     def call(self, fn, *args, retries=2, **kwargs):
+        # NOT: Python 3'te `except ... as exc` blogu bitince `exc` degiskeni silinir;
+        # bu yuzden son hatayi except icinde `last`e baglariz (disarida erisilemez).
         last = None
         for attempt in range(retries + 1):
             try:
                 return getattr(self.cl, fn)(*args, **kwargs)
             except TRANSIENT as exc:
+                last = exc
                 wait = int(getattr(exc, "wait_seconds", 0)) or (600 if attempt == 0 else 900)
                 self.logger.warning(f"[{self.name}] {type(exc).__name__}, {wait} sn bekleniyor")
                 time.sleep(wait)
-            except LoginRequired:
+            except LoginRequired as exc:
+                last = exc
                 self.logger.warning(f"[{self.name}] Oturum dusmus, yeniden giris deneniyor")
                 self.connect(force=True)
             except (requests.RequestException, TimeoutError, OSError) as exc:
+                last = exc
                 self.logger.warning(f"[{self.name}] Ag hatasi ({type(exc).__name__}), tekrar deneniyor")
                 time.sleep(15 * (attempt + 1))
-            except ClientError as exc:
+            except ClientError:
                 raise
-            last = exc
         raise AccountError(f"[{self.name}] {fn} islemi {retries + 1} denemede basarisiz: {last}")

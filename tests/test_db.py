@@ -45,6 +45,26 @@ class TestRepo(unittest.TestCase):
         self.assertEqual(by_status[("follow", "fail")], 1)
         self.assertEqual(len(self.repo.recent_actions("a")), 2)
 
+    def test_hourly_actions_from_created_at(self):
+        # created_at'ten saat turetilir; yalnizca 'ok' sayilir, 24 elemanli seri doner.
+        self.repo._exec(
+            "INSERT INTO actions (account, action_type, target, status, created_at) "
+            "VALUES ('a','like','1','ok','2026-08-06 09:15:00')")
+        self.repo._exec(
+            "INSERT INTO actions (account, action_type, target, status, created_at) "
+            "VALUES ('a','like','2','ok','2026-08-06 09:40:00')")
+        self.repo._exec(
+            "INSERT INTO actions (account, action_type, target, status, created_at) "
+            "VALUES ('a','like','3','fail','2026-08-06 09:50:00')")
+        self.repo._exec(
+            "INSERT INTO actions (account, action_type, target, status, created_at) "
+            "VALUES ('a','like','4','ok','2026-08-06 14:00:00')")
+        series = self.repo.hourly_actions("a", "2026-08-06", "like")
+        self.assertEqual(len(series), 24)
+        self.assertEqual(series[9], 2)
+        self.assertEqual(series[14], 1)
+        self.assertEqual(sum(series), 3)
+
     def test_limits(self):
         self.repo.bump_limit("a", "follows", "2026-08-05", 10)
         self.repo.bump_limit("a", "follows", "2026-08-05", 10)

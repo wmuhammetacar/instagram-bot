@@ -1,5 +1,6 @@
 import logging
 import os
+import secrets
 import threading
 import time
 from pathlib import Path
@@ -94,7 +95,8 @@ def create_app(config, repo):
         logger.warning("Web paneli token korumasiz calisiyor (sadece yerel kullanim onerilir)")
 
     def require_auth(x_auth_token: str = Header(default="")):
-        if auth_token and x_auth_token != auth_token:
+        # secrets.compare_digest: sabit zamanli karsilastirma (timing attack'e karsi).
+        if auth_token and not secrets.compare_digest(str(x_auth_token), auth_token):
             raise HTTPException(401, "Gecersiz veya eksik token (X-Auth-Token)")
 
     guarded = [Depends(require_auth)]

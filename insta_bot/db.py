@@ -243,13 +243,18 @@ class Repo:
         return self._query(sql, params)
 
     def hourly_actions(self, account, date, action_type):
+        # actions tablosunda ayri 'hour' sutunu yok; saati created_at'ten turetiyoruz
+        # (format: "YYYY-MM-DD HH:MM:SS" -> 12. karakterden itibaren 2 hane).
         rows = self._query(
-            """SELECT hour, COUNT(*) AS c FROM actions
-               WHERE account=? AND action_type=? AND created_at LIKE ?
+            """SELECT CAST(substr(created_at, 12, 2) AS INTEGER) AS hour, COUNT(*) AS c
+               FROM actions
+               WHERE account=? AND action_type=? AND status='ok' AND created_at LIKE ?
                GROUP BY hour""", (account, action_type, f"{date}%"))
         counts = [0] * 24
         for r in rows:
-            counts[r["hour"]] = r["c"]
+            h = r["hour"]
+            if h is not None and 0 <= h < 24:
+                counts[h] = r["c"]
         return counts
 
     # ---------------- limits ----------------
