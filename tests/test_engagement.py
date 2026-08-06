@@ -170,6 +170,26 @@ class TestRunner(unittest.TestCase):
         self.runner.engage(self.client, "testacc", hashtags=["test"], budget=10)
         self.assertIn("restriction", self.repo.active_cooldowns("testacc"))
 
+    def test_like_restriction_sets_cooldown(self):
+        # Regresyon: beğeni sırasinda kisit gelince cooldown kurulmali, cokmemeli
+        # (onceden media_like cagrisina cooldowns gecilmedigi icin AttributeError atiyordu).
+        self.client.call_errors["media_like"] = lambda *a: ClientError(
+            "action blocked: too many requests")
+        self.runner.engage(self.client, "testacc", hashtags=["test"],
+                           budget=10, like=True, comment=False)
+        self.assertIn("restriction", self.repo.active_cooldowns("testacc"))
+
+    def test_media_fetched_once_per_target(self):
+        # Regresyon: begeni + yorum ayni gonderiyi kullanir; user_medias hedef basina
+        # bir kez cagrilmali (onceden iki kez cagriliyordu).
+        u = make_user(1, "solo")
+        self.client.hashtag_medias = [make_media("m0", u)]
+        self.client.medias_by_user = {u.pk: [make_media("mm", u)]}
+        self.runner.engage(self.client, "testacc", hashtags=["test"],
+                           budget=10, like=True, comment=True)
+        um_calls = [c for c in self.client.calls if c[0] == "user_medias"]
+        self.assertEqual(len(um_calls), 1)
+
     def test_dm_dedupe(self):
         self.runner.dm(self.client, "testacc", usernames=["ali", "ali"])
         self.assertEqual(self.repo.daily_limit("testacc", "dms",

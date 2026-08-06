@@ -10,6 +10,8 @@ system:
   log_level: "INFO"
   timezone: "Europe/Istanbul"     # aktivite pencereleri bu saat diliminde hesaplanir
   session_dir: "data/sessions"    # oturum dosyalari (hesap basina)
+  # dashboard_token: ""           # bos ise web paneli korumasiz; uzak erisimde token tanimlayin
+                                   # (IG_DASHBOARD_TOKEN ortam degiskeni de kullanilabilir)
 
 # -----------------------------------------------------------
 # Gunluk butceler ve saatlik cap

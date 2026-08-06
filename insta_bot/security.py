@@ -104,5 +104,15 @@ def in_window(account_cfg, now=None, tz_name=None):
     hours = active_windows(account_cfg)
     if not hours:
         return True
-    now = now or time.localtime()
-    return now.tm_hour in hours
+    if now is not None:
+        return now.tm_hour in hours
+    windows = account_cfg.get("windows") or {}
+    tz_name = windows.get("timezone") or tz_name
+    if tz_name:
+        try:
+            from datetime import datetime
+            from zoneinfo import ZoneInfo
+            return datetime.now(ZoneInfo(tz_name)).hour in hours
+        except Exception:
+            pass
+    return time.localtime().tm_hour in hours

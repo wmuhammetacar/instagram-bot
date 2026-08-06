@@ -20,7 +20,7 @@ classifiers = [
 igbot = "bot:main"
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0"]
+dev = ["pytest>=7.0", "httpx>=0.27"]  # httpx: FastAPI TestClient (test_api.py) icin
 
 [tool.setuptools]
 py-modules = ["bot"]
