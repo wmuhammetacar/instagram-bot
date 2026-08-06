@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "instagram-bot"
-version = "1.0.0"
+version = "1.1.0"
 description = "Profesyonel Instagram otomasyon sistemi: engajman, veri cekme, icerik paylasimi, zamanlayici ve web paneli"
 readme = "README.md"
 requires-python = ">=3.9"

@@ -1,6 +1,6 @@
 # Instagram Bot — Profesyonel Otomasyon Sistemi
 
-**Sürüm:** 1.0.0 — Python 3.9+ — Instagram takip/begeni/yorum/DM/paylasim otomasyonu
+**Sürüm:** 1.1.0 — Python 3.9+ — Instagram takip/begeni/yorum/DM/paylasim otomasyonu
 
 Instagram hesabınız için geliştirilmiş, insan benzeri davranış motoruna sahip,
 tek makinede birden fazla hesabı yönetebilen uçtan uca otomasyon sistemi.

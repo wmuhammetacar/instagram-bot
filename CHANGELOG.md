@@ -2,7 +2,7 @@
 
 Bu proje [Semantic Versioning](https://semver.org/lang/tr/) kurallarını takip eder.
 
-## [Yayımlanmamış]
+## [1.1.0] — 2026-08-07
 
 ### Eklendi
 
