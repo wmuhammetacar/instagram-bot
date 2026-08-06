@@ -1,0 +1,22 @@
+# ============================================================
+#  Hesaplar
+#  - password: dogrudan yazmak yerine password_env kullan (onerilir)
+#  - proxy: "http://user:pass@host:port" veya "socks5://host:port" (opsiyonel)
+#  - windows: bos birakilirsa her zaman aktif; doluysa aktivite penceresi
+# ============================================================
+accounts:
+  - name: "hesap1"
+    username: "kullanici_adi_1"
+    password_env: "IG_PW_HESAP1"
+    proxy: ""
+    enabled: true
+    windows: { }                 # ornek: {hours: [18,19,20,21,22], timezone: "Europe/Istanbul"}
+    overrides: { }               # ornek: {limits: {follows: 30, likes: 80}}
+
+  - name: "hesap2"
+    username: "kullanici_adi_2"
+    password_env: "IG_PW_HESAP2"
+    proxy: ""
+    enabled: false
+    windows: { }
+    overrides: { }

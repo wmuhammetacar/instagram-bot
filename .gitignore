@@ -1,0 +1,23 @@
+# Ortam degiskenleri — ASLA git'e eklemeyin
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Paketleme
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+
+# Veri ve gizlilik
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Sistem
+.DS_Store
+*.log

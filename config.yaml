@@ -1,0 +1,125 @@
+# ============================================================
+#  Instagram Bot - Ana Yapilandirma
+#  Hesaplar accounts.yaml icinde tanimlanir.
+#  Sifreler sadece ortam degiskenlerinden okunur (.env dosyasi).
+# ============================================================
+
+system:
+  database: "data/bot.db"
+  log_file: "data/logs/bot.log"
+  log_level: "INFO"
+  timezone: "Europe/Istanbul"     # aktivite pencereleri bu saat diliminde hesaplanir
+  session_dir: "data/sessions"    # oturum dosyalari (hesap basina)
+
+# -----------------------------------------------------------
+# Gunluk butceler ve saatlik cap
+# -----------------------------------------------------------
+limits:
+  follows: 60
+  likes: 150
+  comments: 20
+  dms: 20
+  posts: 4
+  hourly_cap_fraction: 0.20      # saatlik ust sinir = gunluk * bu oran
+
+# -----------------------------------------------------------
+# Insan benzeri davranis (anti-tespit) motoru
+# -----------------------------------------------------------
+delays:
+  base: [45, 120]                # aksiyonlar arasi ana bekleme (sn)
+  spread: [10, 60]               # ek rastgele varyans (sn)
+  actions:                       # aksiyon tipine ozel bekleme (sn)
+    follow: [60, 180]
+    like: [25, 90]
+    comment: [90, 240]
+    dm: [120, 300]
+    post: [300, 900]
+  heat_multiplier: 2.0           # calisma uzadikca bekleme carpani (kademeli yavaslama)
+  heat_after: 25                 # kac aksiyondan sonra isinma devreye girer
+  after_error: 300               # hata sonrasi min bekleme (sn)
+  min: 5                         # asla bu degerin altina inme (sn)
+
+# -----------------------------------------------------------
+# Hedefleme motoru
+# -----------------------------------------------------------
+targeting:
+  default_budget_per_run: 20     # bir calismada islenecek maksimum hedef
+  competitors_sample: 200        # rakip hesap takipcilerinden orneklem boyutu
+  sources:
+    hashtags: ["python", "coding", "developer"]
+    competitors: []              # rakip/benzer hesaplar (kullanici adi)
+  filters:
+    min_followers: 50
+    max_followers: 50000
+    max_following: 2000
+    min_media_count: 3
+    allow_private: false
+    allow_verified: false
+    skip_mutual: false           # zaten bizi takip edenleri atla (ek API cagrisi yapar)
+    last_media_max_age_days: 21  # son paylasimi bu kadar gun eski olmayanlar
+    bio_include: ["python", "developer", "programmer", "software", "engineer", "data"]
+    bio_exclude: ["buy", "sell", "sale", "promo", "win", "free", "money"]
+  scoring:
+    keyword_hit: 40              # biyo anahtar kelime eslesmesi
+    follower_balance: 30         # takipci sayisi optimum kurbeye yakinligi
+    recency: 30                  # son aktivite tarihi
+
+# -----------------------------------------------------------
+# Yorum ve DM mesaj havuzlari ({username} degiskeni kullanilabilir)
+# -----------------------------------------------------------
+comments:
+  rotation:
+    - "Cok faydali bir paylasim olmus {username}, tesekkurler!"
+    - "Bu konudaki tecruben gercekten etkileyici, takipte kaldim"
+    - "Keske herkes boyle detayli anlatsa {username}. Eline saglik!"
+    - "Devamini bekliyoruz, bu tarz icerikler cok kiymetli"
+  max_per_target: 1
+
+dm:
+  rotation:
+    - "Merhaba {username}! Benzer alanlarda icerik uretiyoruz, takip etmek istersen cok sevinirim"
+    - "Selam {username}, paylasimlarini icerik arastirmasi icin cok kullaniyorum, tesekkurler"
+  max_per_target: 1
+
+# -----------------------------------------------------------
+# Icerik paylasimi (post)
+# -----------------------------------------------------------
+posting:
+  rotation: []                   # bos ise --caption parametresi kullanilir
+  hashtag_bank:                  # otomatik hashtag secimi icin havuz
+    big: ["#python", "#coding", "#programming"]
+    medium: ["#pythondeveloper", "#programmerlife", "#devcommunity"]
+    small: ["#pythonprojects", "#dailypython", "#learntocode"]
+  hashtags_per_post: 8           # kac hashtag otomatik eklensin
+
+# -----------------------------------------------------------
+# Zamanlayici gorevleri (scheduler)
+#   schedule:
+#     - every_hours: 4                -> her 4 saatte bir
+#     - at: ["09:00", "21:00"]        -> gunun belirli saatleri
+#       days: [0,1,2,3,4,5,6]         -> haftanin gunleri (0=Pazar)
+# -----------------------------------------------------------
+tasks:
+  - name: "sabah_engajman"
+    account: "hesap1"
+    action: "engage"
+    params:
+      budget: 15
+      like: true
+      comment: true
+    schedule:
+      at: ["09:00", "21:00"]
+      days: [1, 2, 3, 4, 5]
+    enabled: true
+
+  - name: "haftasonu_engajman"
+    account: "hesap1"
+    action: "engage"
+    params:
+      budget: 25
+      like: true
+      comment: false
+    schedule:
+      at: ["11:00", "18:00"]
+      days: [0, 6]
+    enabled: true

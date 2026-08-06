@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "instagram-bot"
+version = "1.0.0"
+description = "Profesyonel Instagram otomasyon sistemi: engajman, veri cekme, icerik paylasimi, zamanlayici ve web paneli"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+keywords = ["instagram", "bot", "automation", "engagement", "scheduler"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+]
+
+[project.scripts]
+igbot = "bot:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[tool.setuptools]
+py-modules = ["bot"]
+packages = ["insta_bot"]

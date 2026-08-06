@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Instagram Bot Kontrol Paneli</title>
+<link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="logo">IG</div>
+    <div>
+      <h1>Instagram Bot</h1>
+      <span id="clock" class="muted">--:--:--</span>
+    </div>
+  </div>
+  <nav>
+    <button class="tab active" data-tab="overview">Genel</button>
+    <button class="tab" data-tab="targets">Hedefler</button>
+    <button class="tab" data-tab="actions">Aksiyonlar</button>
+    <button class="tab" data-tab="tasks">Görevler</button>
+    <button class="tab" data-tab="report">Rapor</button>
+  </nav>
+</header>
+
+<main>
+  <section id="overview" class="panel active">
+    <div class="stat-strip" id="global-stats"></div>
+    <div id="account-cards" class="card-grid"></div>
+  </section>
+
+  <section id="targets" class="panel">
+    <div class="toolbar">
+      <input id="t-filter" placeholder="Filtre: username, bio..." class="input">
+      <select id="t-status" class="input">
+        <option value="">Tüm durumlar</option>
+        <option value="pending">Bekliyor</option>
+        <option value="processed">İşlendi</option>
+        <option value="skipped">Atlandı</option>
+        <option value="blacklisted">Kara liste</option>
+      </select>
+      <button class="btn ghost" id="t-refresh">Yenile</button>
+      <button class="btn danger" id="t-clear">İşlenenleri Temizle</button>
+    </div>
+    <div class="table-wrap"><table id="targets-table"></table></div>
+  </section>
+
+  <section id="actions" class="panel">
+    <div class="toolbar">
+      <button class="btn ghost" id="a-refresh">Yenile</button>
+    </div>
+    <div class="table-wrap"><table id="actions-table"></table></div>
+  </section>
+
+  <section id="tasks" class="panel">
+    <div class="toolbar">
+      <button class="btn ghost" id="tk-refresh">Yenile</button>
+    </div>
+    <div class="table-wrap"><table id="tasks-table"></table></div>
+    <div class="form-card">
+      <h3>Yeni Görev</h3>
+      <div class="form-row">
+        <input id="tk-name" placeholder="Görev adı" class="input">
+        <select id="tk-account" class="input"></select>
+        <select id="tk-action" class="input">
+          <option value="engage">Engajman</option>
+          <option value="dm">DM</option>
+          <option value="scrape">Scrape</option>
+          <option value="post">Post</option>
+        </select>
+        <input id="tk-schedule" placeholder='{"every_hours": 4}' class="input mono">
+        <button class="btn" id="tk-add">Ekle</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="report" class="panel">
+    <div class="toolbar">
+      <input id="r-date" type="date" class="input">
+      <button class="btn ghost" id="r-refresh">Yenile</button>
+    </div>
+    <div id="report-body"></div>
+  </section>
+</main>
+
+<div id="toast"></div>
+<div id="modal" class="modal hidden">
+  <div class="modal-card">
+    <h3 id="modal-title"></h3>
+    <div id="modal-body"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" id="modal-close">Kapat</button>
+      <button class="btn" id="modal-ok">Çalıştır</button>
+    </div>
+  </div>
+</div>
+
+<script src="/assets/app.js"></script>
+</body>
+</html>
