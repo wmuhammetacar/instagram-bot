@@ -1,5 +1,4 @@
 import math
-import time
 from datetime import date
 
 from instagrapi.exceptions import ClientError, MediaNotFound, UserNotFound

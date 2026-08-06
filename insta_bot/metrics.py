@@ -1,7 +1,5 @@
 import time
 
-from insta_bot.config import Config
-
 
 class Metrics:
     def __init__(self, config, repo, logger):

@@ -43,9 +43,9 @@ class TestCallRetry(unittest.TestCase):
         # Tum denemeler gecici hata -> temiz AccountError (son hata mesajiyla).
         client = _make_client()
         client.cl = FakeCl([PleaseWaitFewMinutes("x")] * 3)
-        with patch("insta_bot.session.time.sleep", return_value=None):
-            with self.assertRaises(AccountError) as ctx:
-                client.call("op", retries=2)
+        with patch("insta_bot.session.time.sleep", return_value=None), \
+                self.assertRaises(AccountError) as ctx:
+            client.call("op", retries=2)
         self.assertIn("op", str(ctx.exception))
         self.assertEqual(client.cl.calls, 3)
 

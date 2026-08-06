@@ -60,8 +60,8 @@ class BotClient:
                 return self._finish(cl)
             except LoginRequired:
                 self.logger.warning(f"[{self.name}] Kayitli oturum gecersiz, yeniden giriliyor")
-            except ChallengeRequired:
-                raise ChallengePending(f"[{self.name}] Challenge dogrulamasi gerekiyor")
+            except ChallengeRequired as exc:
+                raise ChallengePending(f"[{self.name}] Challenge dogrulamasi gerekiyor") from exc
         cl = self._fresh_login(cl, verification_callback)
         cl.dump_settings(self.session_file)
         return self._finish(cl)
@@ -72,10 +72,11 @@ class BotClient:
         except TwoFactorRequired:
             code = self._ask("2FA dogrulama kodu", verification_callback)
             cl.login(self.username, self.password, verification_code=code)
-        except ChallengeRequired:
+        except ChallengeRequired as exc:
             self.repo.set_state(self.name, needs_challenge=1, last_error="challenge")
             raise ChallengePending(
-                f"[{self.name}] Instagram challenge istedi. Terminalde 'python bot.py login {self.name}' calistir.")
+                f"[{self.name}] Instagram challenge istedi. Terminalde 'python bot.py login {self.name}' calistir."
+            ) from exc
         return cl
 
     def _finish(self, cl):

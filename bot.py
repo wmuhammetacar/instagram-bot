@@ -3,7 +3,6 @@ import json
 import logging
 import signal
 import sys
-import time
 from logging.handlers import RotatingFileHandler
 
 import uvicorn
@@ -59,7 +58,7 @@ def build_parser():
                          help="Hesap adi (accounts.yaml) veya 'all'")
     s_login.add_argument("--force", action="store_true", help="Kayitli oturumu atla")
 
-    s_status = sub.add_parser("status", help="Hesap ve gunluk istatistik durumu")
+    sub.add_parser("status", help="Hesap ve gunluk istatistik durumu")
     s_engage = sub.add_parser("engage", help="Engajman calistir (takip/begeni/yorum)")
     s_engage.add_argument("account")
     s_engage.add_argument("--hashtags", nargs="*")
@@ -182,10 +181,10 @@ def main(argv=None):
             print(f"\n[{name}] @{config.account(name)['username']}"
                   f"  challenge={'EVET' if state.get('needs_challenge') else 'hayir'}"
                   f"  kisit={len(cooldowns)}")
-            print("  takip: %d | begeni: %d | yorum: %d | dm: %d | paylasim: %d | hata: %d" % (
-                data["follows"], data["likes"], data["comments"], data["dms"], data["posts"], data["errors"]))
-        print("\nHedefler: bekleyen=%d islenen=%d" % (
-            repo.targets_count(status="pending"), repo.targets_count(status="processed")))
+            print(f"  takip: {data['follows']} | begeni: {data['likes']} | yorum: {data['comments']} | "
+                  f"dm: {data['dms']} | paylasim: {data['posts']} | hata: {data['errors']}")
+        print(f"\nHedefler: bekleyen={repo.targets_count(status='pending')} "
+              f"islenen={repo.targets_count(status='processed')}")
         return
 
     if cmd == "engage":

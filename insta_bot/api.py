@@ -103,7 +103,6 @@ def create_app(config, repo):
 
     runtime = ApiRuntime()
     factory = AccountFactory(config, repo, logger)
-    runner = Runner(config, repo, logger)
     metrics = Metrics(config, repo, logger)
     job_locks = {}
 
@@ -132,9 +131,9 @@ def create_app(config, repo):
         try:
             return factory.connect(name, force=force)
         except ChallengePending as exc:
-            raise HTTPException(409, str(exc))
+            raise HTTPException(409, str(exc)) from exc
         except AccountError as exc:
-            raise HTTPException(400, str(exc))
+            raise HTTPException(400, str(exc)) from exc
 
     @app.get("/api/status")
     def status():

@@ -231,7 +231,7 @@ insta_bot/
   web/                  # panel arayuzu (HTML/JS/CSS)
   factory.py            # hesap baglanti fabrikasi
 data/                   # SQLite veritabani, oturumlar, loglar, ciktilar
-tests/                  # 40 birim testi
+tests/                  # birim testleri (engajman, unfollow, guvenlik, api, db, ...)
 ```
 
 ---
@@ -240,10 +240,14 @@ tests/                  # 40 birim testi
 
 ```bash
 source .venv/bin/activate
-python -m pytest tests -q     # 40 test — hepsi gecmeli
+pip install -e ".[dev]"       # pytest, httpx, ruff
+ruff check .                  # lint (kod kalitesi)
+python -m pytest              # birim testleri — hepsi gecmeli
 ```
 
-Her sürüm yayınlanmadan önce test suite'i yeşil olmalıdır.
+Her sürüm yayınlanmadan önce hem `ruff check .` hem de test suite'i yeşil
+olmalıdır. Her push ve PR'da GitHub Actions (`.github/workflows/ci.yml`)
+Python 3.9/3.11/3.12 üzerinde lint + testleri otomatik çalıştırır.
 
 ---
 

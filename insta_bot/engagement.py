@@ -30,10 +30,7 @@ class Runner:
         return cfg, DelayEngine(cfg), LimitEngine(cfg, self.repo), CooldownRegistry(self.repo)
 
     def _blocked(self, account_name, cooldowns, *keys):
-        for k in keys:
-            if cooldowns.active(account_name, k):
-                return True
-        return False
+        return any(cooldowns.active(account_name, k) for k in keys)
 
     def engage(self, client, account_name, hashtags=None, competitors=None,
                budget=None, like=True, comment=False, max_follows=None):
