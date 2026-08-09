@@ -340,6 +340,8 @@ class Repo:
     # ---------------- account state ----------------
 
     def set_state(self, account, **fields):
+        if not fields:
+            return
         row = self._one("SELECT 1 AS x FROM account_state WHERE account=?", (account,))
         if row:
             sets = ", ".join(f"{k}=?" for k in fields)
@@ -365,6 +367,8 @@ class Repo:
         return self._one("SELECT MAX(id) AS id FROM tasks")["id"]
 
     def update_task(self, task_id, **fields):
+        if not fields:
+            return
         sets = ", ".join(f"{k}=?" for k in fields)
         self._exec(f"UPDATE tasks SET {sets} WHERE id=?", (*fields.values(), task_id))
 

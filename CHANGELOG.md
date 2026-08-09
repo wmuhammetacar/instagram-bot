@@ -21,11 +21,20 @@ Bu proje [Semantic Versioning](https://semver.org/lang/tr/) kurallarını takip 
   olarak kaydeder. `igbot analyze <hesap> [--since]`, `/api/analytics` ucu.
 - **Panel:** raporda saatlik dağılım SVG grafiği (hesap + metrik seçici) ve
   kaynak dönüşüm tablosu.
+- **Dağıtım:** `Dockerfile`, `docker-compose.yml` (bot + dashboard servisleri),
+  `deploy/igbot.service` systemd birimi, `.dockerignore`.
+- **Proxy sağlık kontrolü:** bağlanmadan önce proxy doğrulanır ve çıkış IP'si
+  loglanır; doğrulanamazsa (varsayılan) bağlantı durur (`system.proxy_check`,
+  `system.proxy_required`).
+- **CI:** pytest-cov ile kapsam raporu.
 
 ### Düzeltmeler
 
 - `merged_account` tabanına `unfollow` eklendi: `config.yaml` `unfollow` ayarları
   önceden yok sayılıp yalnızca varsayılanlar kullanılıyordu.
+- `Repo.set_state` / `Repo.update_task` boş alanla çağrıldığında geçersiz SQL
+  (`SET  WHERE`) üretiyordu; artık no-op.
+- `bot.py` çıkışta veritabanı bağlantısını `atexit` ile kapatır.
 
 ## [1.1.0] — 2026-08-07
 

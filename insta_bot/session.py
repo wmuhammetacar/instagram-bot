@@ -55,7 +55,12 @@ class BotClient:
                 cl.set_proxy(self.proxy)
                 self.logger.info(f"[{self.name}] Proxy aktif: {self.proxy.split('@')[-1]}")
             except Exception as exc:
-                self.logger.error(f"[{self.name}] Proxy ayarlanamadi: {exc}")
+                # Proxy ayarlanamadi: gercek IP sizmamasi icin varsayilan olarak dur.
+                msg = f"[{self.name}] Proxy ayarlanamadi: {exc}"
+                if self.config.get("system", {}).get("proxy_required", True):
+                    raise AccountError(msg) from exc
+                self.logger.error(msg + " (proxy_required=false, proxysuz devam)")
+            self._check_proxy()
         cl.challenge_code_handler = lambda u, c: self._challenge_code(u, c, challenge_callback)
         if self.session_file.exists() and not force:
             try:
@@ -69,6 +74,27 @@ class BotClient:
         cl = self._fresh_login(cl, verification_callback)
         cl.dump_settings(self.session_file)
         return self._finish(cl)
+
+    def _check_proxy(self):
+        # Proxy'nin gercekten calistigini bagimsiz bir istekle dogrula; cikis IP'sini
+        # logla. Basarisizsa (proxy_required) durur ki gercek IP sizmasin.
+        sys_cfg = self.config.get("system", {})
+        if not self.proxy or not sys_cfg.get("proxy_check", True):
+            return
+        url = sys_cfg.get("proxy_check_url", "https://api.ipify.org?format=json")
+        timeout = int(sys_cfg.get("proxy_check_timeout", 15))
+        try:
+            resp = requests.get(url, proxies={"http": self.proxy, "https": self.proxy},
+                                timeout=timeout)
+            resp.raise_for_status()
+            ip = resp.json().get("ip") if "json" in resp.headers.get("content-type", "") \
+                else resp.text.strip()
+            self.logger.info(f"[{self.name}] Proxy dogrulandi, cikis IP: {ip}")
+        except Exception as exc:
+            msg = f"[{self.name}] Proxy dogrulanamadi: {exc}"
+            if sys_cfg.get("proxy_required", True):
+                raise AccountError(msg) from exc
+            self.logger.warning(msg + " (proxy_required=false, proxysuz devam)")
 
     def _apply_locale(self, cl):
         # Bolge tutarliligi (anti-tespit): locale/country/timezone hesap veya proxy

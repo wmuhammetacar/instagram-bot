@@ -1,4 +1,5 @@
 import argparse
+import atexit
 import json
 import logging
 import signal
@@ -152,6 +153,7 @@ def main(argv=None):
         print(f"\nYAPILANDIRMA HATASI: {exc}\n", file=sys.stderr)
         sys.exit(1)
     repo = Repo(config.path(config.get("system", {}).get("database", "data/bot.db")))
+    atexit.register(repo.close)
     logger = setup_logger(config)
     factory = AccountFactory(config, repo, logger)
 

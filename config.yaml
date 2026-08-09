@@ -15,6 +15,8 @@ system:
   locale: "tr_TR"                 # bolge tutarliligi (anti-tespit); proxy bolgesiyle uyumlu olmali
   country: "TR"
   timezone_offset: 10800          # saniye cinsinden UTC farki (TR = +3s = 10800)
+  proxy_check: true               # proxy tanimliysa baglanmadan once dogrula (cikis IP loglanir)
+  proxy_required: true            # proxy dogrulanamazsa dur (gercek IP sizmasin); false=uyar-devam
 
 # -----------------------------------------------------------
 # Gunluk butceler ve saatlik cap

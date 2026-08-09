@@ -1,0 +1,31 @@
+# systemd birim dosyasi — zamanlayici daemon'u kalici servis olarak calistirir.
+#
+# Kurulum:
+#   sudo cp deploy/igbot.service /etc/systemd/system/igbot.service
+#   (asagidaki User/WorkingDirectory/ExecStart yollarini kendi kurulumunuza gore duzenleyin)
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now igbot
+#   journalctl -u igbot -f          # canli log
+#
+[Unit]
+Description=Instagram Bot zamanlayici daemon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=igbot
+WorkingDirectory=/opt/instagram-bot
+# Sanal ortam kullaniyorsaniz: /opt/instagram-bot/.venv/bin/igbot run
+ExecStart=/opt/instagram-bot/.venv/bin/igbot run
+Restart=on-failure
+RestartSec=10
+# Guvenlik sikilastirmalari
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/opt/instagram-bot/data
+
+[Install]
+WantedBy=multi-user.target
