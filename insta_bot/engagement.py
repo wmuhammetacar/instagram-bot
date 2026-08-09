@@ -101,6 +101,7 @@ class Runner:
                             break
 
             if follow_ok and pk not in followed_set:
+                self._humanize_view(client, pk, cfg)
                 if self._perform(client, "user_follow", pk,
                                  account_name=account_name, limit_key="follows", action_key="follow",
                                  target_pk=pk, delays=delays, limits=limits, actions_done=done,
@@ -162,6 +163,21 @@ class Runner:
         limits.consume(account_name, limit_key)
         delays.pause(action_key, actions_done, logger=self.logger)
         return True
+
+    def _humanize_view(self, client, pk, cfg):
+        """Takipten once profili 'goruntule' (insansi gezinme). Ekstra API cagrisi ve
+        kisa bekleme ile gercek kullanici akisini taklit eder. Varsayilan kapali."""
+        hz = cfg.get("humanize", {}) or {}
+        if not hz.get("enabled") or self.dry_run:
+            return
+        if random.random() > float(hz.get("view_profile_prob", 0.5)):
+            return
+        try:
+            client.call("user_info", pk)
+            lo, hi = (hz.get("view_pause") or [2, 6])[:2]
+            time.sleep(random.uniform(float(lo), float(hi)))
+        except (UserNotFound, MediaNotFound, PrivateError, ClientError) as exc:
+            self.logger.info(f"[{'?'}] profil goruntuleme atlandi: {exc}")
 
     def _handle_target_error(self, account_name, pk, exc, summary, cooldowns):
         if isinstance(exc, ChallengeRequired):

@@ -46,6 +46,7 @@ class BotClient:
         self.session_dir.mkdir(parents=True, exist_ok=True)
         cl = Client()
         cl.request_timeout = int(self.config.get("system", {}).get("request_timeout", 60))
+        self._apply_locale(cl)
         if self.proxy:
             try:
                 cl.set_proxy(self.proxy)
@@ -65,6 +66,22 @@ class BotClient:
         cl = self._fresh_login(cl, verification_callback)
         cl.dump_settings(self.session_file)
         return self._finish(cl)
+
+    def _apply_locale(self, cl):
+        # Bolge tutarliligi (anti-tespit): locale/country/timezone hesap veya proxy
+        # bolgesiyle uyumlu olmali. Cihazin kendisi instagrapi tarafindan uretilip
+        # oturum dosyasinda kalici tutulur.
+        sys_cfg = self.config.get("system", {})
+        locale = self.account.get("locale") or sys_cfg.get("locale", "tr_TR")
+        country = self.account.get("country") or sys_cfg.get("country", "TR")
+        tz_offset = int(self.account.get("timezone_offset",
+                                         sys_cfg.get("timezone_offset", 10800)))
+        try:
+            cl.set_locale(locale)
+            cl.set_country(country)
+            cl.set_timezone_offset(tz_offset)
+        except Exception as exc:  # instagrapi surum farklari icin guvenli
+            self.logger.warning(f"[{self.name}] Bolge ayari uygulanamadi: {exc}")
 
     def _fresh_login(self, cl, verification_callback):
         try:

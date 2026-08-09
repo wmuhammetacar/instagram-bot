@@ -2,6 +2,22 @@
 
 Bu proje [Semantic Versioning](https://semver.org/lang/tr/) kurallarını takip eder.
 
+## [Yayımlanmamış]
+
+### Eklendi
+
+- **Anti-tespit — kademeli ısınma (warmup):** hesap yaşına göre günlük limitler
+  `start_fraction`'dan tam limite kademeli açılır (`config.yaml` `warmup`).
+- **Anti-tespit — insansı gezinme (humanize):** takipten önce belirli olasılıkla
+  profil görüntülenir (`user_info` + kısa bekleme) (`config.yaml` `humanize`).
+- **Anti-tespit — bölge tutarlılığı:** oturuma locale/country/timezone_offset
+  uygulanır (proxy bölgesiyle uyumlu olmalı; `system` veya hesap bazında).
+
+### Düzeltmeler
+
+- `merged_account` tabanına `unfollow` eklendi: `config.yaml` `unfollow` ayarları
+  önceden yok sayılıp yalnızca varsayılanlar kullanılıyordu.
+
 ## [1.1.0] — 2026-08-07
 
 ### Eklendi

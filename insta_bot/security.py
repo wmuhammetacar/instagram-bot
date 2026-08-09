@@ -51,26 +51,58 @@ class LimitEngine:
             self.limits["unfollows"] = self.limits.get("follows", 0)
         self.hour_fraction = float(limits.get("hourly_cap_fraction", 0.2))
         self.repo = repo
+        # Kademeli isinma: yeni hesap ilk gun start_fraction, `days` gunde tam limite ciyar.
+        warmup = cfg.get("warmup", {}) or {}
+        self.warmup_enabled = bool(warmup.get("enabled", False))
+        self.warmup_days = max(1, int(warmup.get("days", 7)))
+        self.warmup_start = min(1.0, max(0.0, float(warmup.get("start_fraction", 0.3))))
+        self._factor_cache = {}
 
-    def daily_cap(self, action_type):
-        return self.limits.get(action_type, 0)
+    def warmup_factor(self, account):
+        """Hesap yasina gore [start_fraction, 1.0] araliginda limit carpani."""
+        if not self.warmup_enabled:
+            return 1.0
+        if account in self._factor_cache:
+            return self._factor_cache[account]
+        start = self.repo.first_action_date(account)
+        if not start:
+            age_days = 0
+        else:
+            try:
+                start_ts = time.mktime(time.strptime(start, "%Y-%m-%d"))
+                age_days = max(0, int((time.time() - start_ts) // 86400))
+            except (ValueError, OverflowError):
+                age_days = self.warmup_days
+        progress = min(1.0, age_days / self.warmup_days)
+        factor = self.warmup_start + (1.0 - self.warmup_start) * progress
+        self._factor_cache[account] = factor
+        return factor
 
-    def hourly_cap(self, action_type):
-        return max(3, round(self.limits.get(action_type, 0) * self.hour_fraction))
+    def daily_cap(self, action_type, account=None):
+        base = self.limits.get(action_type, 0)
+        if account is None or not base:
+            return base
+        return max(1, round(base * self.warmup_factor(account)))
+
+    def hourly_cap(self, action_type, account=None):
+        base = self.limits.get(action_type, 0)
+        if account is not None and base:
+            base = base * self.warmup_factor(account)
+        return max(3, round(base * self.hour_fraction))
 
     def check(self, account, action_type, date=None, hour=None):
         date = date or time.strftime("%Y-%m-%d")
         hour = hour if hour is not None else int(time.strftime("%H"))
         used_daily = self.repo.daily_limit(account, action_type, date)
         used_hourly = self.repo.hour_limit(account, action_type, date, hour)
-        daily_ok = used_daily < self.daily_cap(action_type)
-        hourly_ok = used_hourly < self.hourly_cap(action_type)
+        daily_ok = used_daily < self.daily_cap(action_type, account)
+        hourly_ok = used_hourly < self.hourly_cap(action_type, account)
         return daily_ok and hourly_ok
 
     def remaining(self, account, action_type, date=None):
         date = date or time.strftime("%Y-%m-%d")
         used = self.repo.daily_limit(account, action_type, date)
-        return max(0, self.daily_cap(action_type) - used)
+        return max(0, self.daily_cap(action_type, account) - used)
 
     def consume(self, account, action_type, date=None, hour=None):
         date = date or time.strftime("%Y-%m-%d")

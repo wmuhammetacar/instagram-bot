@@ -171,6 +171,9 @@ class Config:
             "comments": deepcopy(self.get("comments", {})),
             "dm": deepcopy(self.get("dm", {})),
             "posting": deepcopy(self.get("posting", {})),
+            "unfollow": deepcopy(self.get("unfollow", {})),
+            "warmup": deepcopy(self.get("warmup", {})),
+            "humanize": deepcopy(self.get("humanize", {})),
             "windows": {},
         }
         acc = self.account(name) or {}

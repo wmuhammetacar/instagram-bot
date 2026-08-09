@@ -233,6 +233,15 @@ class Repo:
         params.append(limit)
         return self._query(sql, params)
 
+    def first_action_date(self, account):
+        # Hesabin ilk aksiyon tarihi (YYYY-MM-DD). Isinma rampasi icin "hesap yasi"
+        # buradan hesaplanir. Hic aksiyon yoksa None doner (gun 0 kabul edilir).
+        row = self._one(
+            "SELECT MIN(created_at) AS t FROM actions WHERE account=?", (account,))
+        if not row or not row["t"]:
+            return None
+        return str(row["t"])[:10]
+
     def unfollow_candidates(self, account, before_ts, limit=200):
         # Gercekten takip edilmis (follow/ok) ve henuz basariyla unfollow edilmemis,
         # `before_ts`ten once takip edilen kullanicilar (en eskiden yeniye).
