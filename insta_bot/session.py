@@ -14,6 +14,8 @@ from instagrapi.exceptions import (
     TwoFactorRequired,
 )
 
+from insta_bot.notify import Notifier
+
 TRANSIENT = (PleaseWaitFewMinutes, RateLimitError, ClientThrottledError)
 
 
@@ -39,6 +41,7 @@ class BotClient:
         self.session_file = self.session_dir / "session.json"
         self.cl = None
         self.connected_at = None
+        self.notifier = Notifier(config, logger)
 
     def connect(self, force=False, challenge_callback=None, verification_callback=None):
         if not self.username or not self.password:
@@ -46,12 +49,18 @@ class BotClient:
         self.session_dir.mkdir(parents=True, exist_ok=True)
         cl = Client()
         cl.request_timeout = int(self.config.get("system", {}).get("request_timeout", 60))
+        self._apply_locale(cl)
         if self.proxy:
             try:
                 cl.set_proxy(self.proxy)
                 self.logger.info(f"[{self.name}] Proxy aktif: {self.proxy.split('@')[-1]}")
             except Exception as exc:
-                self.logger.error(f"[{self.name}] Proxy ayarlanamadi: {exc}")
+                # Proxy ayarlanamadi: gercek IP sizmamasi icin varsayilan olarak dur.
+                msg = f"[{self.name}] Proxy ayarlanamadi: {exc}"
+                if self.config.get("system", {}).get("proxy_required", True):
+                    raise AccountError(msg) from exc
+                self.logger.error(msg + " (proxy_required=false, proxysuz devam)")
+            self._check_proxy()
         cl.challenge_code_handler = lambda u, c: self._challenge_code(u, c, challenge_callback)
         if self.session_file.exists() and not force:
             try:
@@ -66,6 +75,43 @@ class BotClient:
         cl.dump_settings(self.session_file)
         return self._finish(cl)
 
+    def _check_proxy(self):
+        # Proxy'nin gercekten calistigini bagimsiz bir istekle dogrula; cikis IP'sini
+        # logla. Basarisizsa (proxy_required) durur ki gercek IP sizmasin.
+        sys_cfg = self.config.get("system", {})
+        if not self.proxy or not sys_cfg.get("proxy_check", True):
+            return
+        url = sys_cfg.get("proxy_check_url", "https://api.ipify.org?format=json")
+        timeout = int(sys_cfg.get("proxy_check_timeout", 15))
+        try:
+            resp = requests.get(url, proxies={"http": self.proxy, "https": self.proxy},
+                                timeout=timeout)
+            resp.raise_for_status()
+            ip = resp.json().get("ip") if "json" in resp.headers.get("content-type", "") \
+                else resp.text.strip()
+            self.logger.info(f"[{self.name}] Proxy dogrulandi, cikis IP: {ip}")
+        except Exception as exc:
+            msg = f"[{self.name}] Proxy dogrulanamadi: {exc}"
+            if sys_cfg.get("proxy_required", True):
+                raise AccountError(msg) from exc
+            self.logger.warning(msg + " (proxy_required=false, proxysuz devam)")
+
+    def _apply_locale(self, cl):
+        # Bolge tutarliligi (anti-tespit): locale/country/timezone hesap veya proxy
+        # bolgesiyle uyumlu olmali. Cihazin kendisi instagrapi tarafindan uretilip
+        # oturum dosyasinda kalici tutulur.
+        sys_cfg = self.config.get("system", {})
+        locale = self.account.get("locale") or sys_cfg.get("locale", "tr_TR")
+        country = self.account.get("country") or sys_cfg.get("country", "TR")
+        tz_offset = int(self.account.get("timezone_offset",
+                                         sys_cfg.get("timezone_offset", 10800)))
+        try:
+            cl.set_locale(locale)
+            cl.set_country(country)
+            cl.set_timezone_offset(tz_offset)
+        except Exception as exc:  # instagrapi surum farklari icin guvenli
+            self.logger.warning(f"[{self.name}] Bolge ayari uygulanamadi: {exc}")
+
     def _fresh_login(self, cl, verification_callback):
         try:
             cl.login(self.username, self.password)
@@ -74,6 +120,9 @@ class BotClient:
             cl.login(self.username, self.password, verification_code=code)
         except ChallengeRequired as exc:
             self.repo.set_state(self.name, needs_challenge=1, last_error="challenge")
+            self.notifier.notify(
+                "challenge",
+                f"[{self.name}] Instagram challenge istedi; terminalde 'python bot.py login {self.name}' calistir.")
             raise ChallengePending(
                 f"[{self.name}] Instagram challenge istedi. Terminalde 'python bot.py login {self.name}' calistir."
             ) from exc

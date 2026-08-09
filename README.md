@@ -1,6 +1,6 @@
 # Instagram Bot — Profesyonel Otomasyon Sistemi
 
-**Sürüm:** 1.1.0 — Python 3.9+ — Instagram takip/begeni/yorum/DM/paylasim otomasyonu
+**Sürüm:** 1.2.0 — Python 3.9+ — Instagram takip/begeni/yorum/DM/paylasim otomasyonu
 
 Instagram hesabınız için geliştirilmiş, insan benzeri davranış motoruna sahip,
 tek makinede birden fazla hesabı yönetebilen uçtan uca otomasyon sistemi.
@@ -195,6 +195,53 @@ tasks:
     schedule: { at: ["09:00", "21:00"], days: [1, 2, 3, 4, 5] }
     enabled: true
 ```
+
+---
+
+## Dağıtım (Docker / systemd)
+
+### Docker Compose
+
+```bash
+cp .env.example .env          # sifreleri doldurun
+docker compose build
+docker compose up -d bot      # zamanlayici daemon
+docker compose up -d dashboard  # web paneli (127.0.0.1:8787)
+```
+
+`data/` dizini kalıcı hacim olarak bağlanır (SQLite, oturumlar, loglar).
+Paneli uzaktan açacaksanız `system.dashboard_token` tanımlayın ve TLS'li bir
+ters proxy arkasına alın.
+
+### systemd
+
+`deploy/igbot.service` örnek birim dosyasını `/etc/systemd/system/` altına
+kopyalayıp yollarını düzenleyin:
+
+```bash
+sudo cp deploy/igbot.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now igbot
+journalctl -u igbot -f
+```
+
+### Proxy güvenliği
+
+`accounts.yaml` içinde `proxy` tanımlıysa, sistem bağlanmadan önce proxy'yi
+doğrular ve çıkış IP'sini loglar (`system.proxy_check`). Proxy doğrulanamazsa
+gerçek IP sızmaması için **bağlantı durdurulur** (`system.proxy_required: true`,
+varsayılan). Uyarı verip proxysuz devam için `proxy_required: false` yapın.
+
+### Anti-tespit ayarları
+
+- `warmup`: yeni hesaplarda günlük limitleri kademeli açar (hesap yaşına göre).
+- `humanize`: takipten önce olasılıkla profil görüntüler (insansı gezinme).
+- `system.locale/country/timezone_offset`: bölge tutarlılığı (proxy ile uyumlu).
+
+### Bildirimler
+
+`config.yaml` `notifications` ile challenge/kısıt/hata olaylarında Telegram,
+Discord veya webhook uyarısı alın (anahtarlar ortam değişkeninden de okunabilir).
 
 ---
 

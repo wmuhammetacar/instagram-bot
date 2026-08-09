@@ -233,6 +233,15 @@ class Repo:
         params.append(limit)
         return self._query(sql, params)
 
+    def first_action_date(self, account):
+        # Hesabin ilk aksiyon tarihi (YYYY-MM-DD). Isinma rampasi icin "hesap yasi"
+        # buradan hesaplanir. Hic aksiyon yoksa None doner (gun 0 kabul edilir).
+        row = self._one(
+            "SELECT MIN(created_at) AS t FROM actions WHERE account=?", (account,))
+        if not row or not row["t"]:
+            return None
+        return str(row["t"])[:10]
+
     def unfollow_candidates(self, account, before_ts, limit=200):
         # Gercekten takip edilmis (follow/ok) ve henuz basariyla unfollow edilmemis,
         # `before_ts`ten once takip edilen kullanicilar (en eskiden yeniye).
@@ -256,6 +265,15 @@ class Repo:
             sql += " AND created_at>=?"
             params.append(since)
         sql += " GROUP BY action_type, status"
+        return self._query(sql, params)
+
+    def actions_by_type(self, account, action_type, since=None):
+        sql = ("SELECT target, meta, created_at FROM actions "
+               "WHERE account=? AND action_type=? AND status='ok'")
+        params = [account, action_type]
+        if since:
+            sql += " AND created_at>=?"
+            params.append(since)
         return self._query(sql, params)
 
     def hourly_actions(self, account, date, action_type):
@@ -322,6 +340,8 @@ class Repo:
     # ---------------- account state ----------------
 
     def set_state(self, account, **fields):
+        if not fields:
+            return
         row = self._one("SELECT 1 AS x FROM account_state WHERE account=?", (account,))
         if row:
             sets = ", ".join(f"{k}=?" for k in fields)
@@ -347,6 +367,8 @@ class Repo:
         return self._one("SELECT MAX(id) AS id FROM tasks")["id"]
 
     def update_task(self, task_id, **fields):
+        if not fields:
+            return
         sets = ", ".join(f"{k}=?" for k in fields)
         self._exec(f"UPDATE tasks SET {sets} WHERE id=?", (*fields.values(), task_id))
 

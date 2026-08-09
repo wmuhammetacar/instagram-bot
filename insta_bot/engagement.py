@@ -10,6 +10,7 @@ from instagrapi.exceptions import (
     UserNotFound,
 )
 
+from insta_bot.notify import Notifier
 from insta_bot.security import CooldownRegistry, DelayEngine, LimitEngine, in_window
 from insta_bot.targeting import TargetEngine
 
@@ -24,6 +25,7 @@ class Runner:
         self.repo = repo
         self.logger = logger
         self.dry_run = dry_run
+        self.notifier = Notifier(config, logger)
 
     def _engine(self, account_name):
         cfg = self.config.merged_account(account_name)
@@ -101,10 +103,11 @@ class Runner:
                             break
 
             if follow_ok and pk not in followed_set:
+                self._humanize_view(client, pk, cfg)
                 if self._perform(client, "user_follow", pk,
                                  account_name=account_name, limit_key="follows", action_key="follow",
                                  target_pk=pk, delays=delays, limits=limits, actions_done=done,
-                                 cooldowns=cooldowns):
+                                 cooldowns=cooldowns, meta={"source": target.get("source")}):
                     summary["follows"] += 1
                     followed_set.add(pk)
                     actions_taken += 1
@@ -138,7 +141,7 @@ class Runner:
         return summary
 
     def _perform(self, client, fn, *args, account_name, limit_key, action_key, target_pk,
-                 delays, limits, actions_done=0, cooldowns=None):
+                 delays, limits, actions_done=0, cooldowns=None, meta=None):
         if self.dry_run:
             self.logger.info(f"[KURU CALISMA] [{account_name}] {action_key} -> {args[0]}")
             return True
@@ -155,13 +158,29 @@ class Runner:
                 if cooldowns is not None:
                     cooldowns.set(account_name, "restriction", 6 * 3600, f"{fn}: {exc}")
                 self.logger.warning(f"[{account_name}] Kisit algilandi, 6 saatlik bekleme basladi: {exc}")
+                self.notifier.notify("restriction", f"[{account_name}] kisit algilandi ({fn}): {exc}")
             self.repo.record_action(account_name, action_key, target_pk, "fail", str(exc))
             return False
-        self.repo.record_action(account_name, action_key, target_pk, "ok")
+        self.repo.record_action(account_name, action_key, target_pk, "ok", meta=meta)
         self.repo.mark_processed(account_name, action_key, target_pk)
         limits.consume(account_name, limit_key)
         delays.pause(action_key, actions_done, logger=self.logger)
         return True
+
+    def _humanize_view(self, client, pk, cfg):
+        """Takipten once profili 'goruntule' (insansi gezinme). Ekstra API cagrisi ve
+        kisa bekleme ile gercek kullanici akisini taklit eder. Varsayilan kapali."""
+        hz = cfg.get("humanize", {}) or {}
+        if not hz.get("enabled") or self.dry_run:
+            return
+        if random.random() > float(hz.get("view_profile_prob", 0.5)):
+            return
+        try:
+            client.call("user_info", pk)
+            lo, hi = (hz.get("view_pause") or [2, 6])[:2]
+            time.sleep(random.uniform(float(lo), float(hi)))
+        except (UserNotFound, MediaNotFound, PrivateError, ClientError) as exc:
+            self.logger.info(f"[{'?'}] profil goruntuleme atlandi: {exc}")
 
     def _handle_target_error(self, account_name, pk, exc, summary, cooldowns):
         if isinstance(exc, ChallengeRequired):
@@ -169,6 +188,7 @@ class Runner:
         msg = str(exc).lower()
         if any(h in msg for h in RESTRICTION_HINTS):
             cooldowns.set(account_name, "restriction", 6 * 3600, f"target-error: {exc}")
+            self.notifier.notify("restriction", f"[{account_name}] kisit algilandi (hedef @{pk}): {exc}")
         self.logger.warning(f"[{account_name}] Hedef @{pk} hatasi: {exc}")
         self.repo.set_target_status(account_name, pk, "skipped")
         summary["errors"] += 1
@@ -259,6 +279,10 @@ class Runner:
                     friendship = client.call("user_friendship", pk)
                     if getattr(friendship, "followed_by", False):
                         summary["kept"] += 1
+                        # Geri takip etti: donusum analitigi icin bir kez kaydet.
+                        if not self.repo.is_processed(account_name, "followback", pk):
+                            self.repo.record_action(account_name, "followback", pk, "ok")
+                            self.repo.mark_processed(account_name, "followback", pk)
                         continue
                 except (UserNotFound, ClientError) as exc:
                     self.logger.warning(f"[{account_name}] @{pk} iliskisi alinamadi, atlaniyor: {exc}")

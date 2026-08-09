@@ -65,6 +65,14 @@ class TestRepo(unittest.TestCase):
         self.assertEqual(series[14], 1)
         self.assertEqual(sum(series), 3)
 
+    def test_actions_by_type_with_meta(self):
+        self.repo.record_action("a", "follow", "1", "ok", meta={"source": "hashtag:python"})
+        self.repo.record_action("a", "follow", "2", "ok")
+        self.repo.record_action("a", "like", "3", "ok")
+        rows = self.repo.actions_by_type("a", "follow")
+        self.assertEqual(len(rows), 2)
+        self.assertTrue(any(r["meta"] and "python" in r["meta"] for r in rows))
+
     def test_hourly_series_normalizes_plural(self):
         # Regresyon: panel/metrics cogul ('follows') gonderir, actions tekil ('follow')
         # saklar; hourly_series normalize etmezse hep 0 doner.
@@ -96,6 +104,13 @@ class TestRepo(unittest.TestCase):
     def test_cooldown_and_state(self):
         self.repo.set_cooldown("a", "restriction", 10**10, "kisit")
         self.assertIn("restriction", self.repo.active_cooldowns("a"))
+
+    def test_empty_fields_are_noop(self):
+        # Regresyon: bos alanla cagri gecersiz SQL ("SET  WHERE") uretmemeli.
+        self.repo.set_state("a")           # patlamamali
+        self.repo.set_state("a", last_login="2026-01-01")
+        self.repo.update_task(1)           # patlamamali (alan yok)
+        self.assertEqual(self.repo.state("a")["last_login"], "2026-01-01")
         self.repo.set_state("a", needs_challenge=1)
         self.assertEqual(self.repo.state("a")["needs_challenge"], 1)
 

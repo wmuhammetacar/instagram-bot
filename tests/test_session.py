@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from instagrapi.exceptions import ClientError, PleaseWaitFewMinutes
 
@@ -27,6 +27,57 @@ class FakeCl:
         if isinstance(item, Exception):
             raise item
         return item
+
+
+class FakeConfig:
+    def __init__(self, system):
+        self._sys = system
+
+    def get(self, key, default=None):
+        return self._sys if key == "system" else default
+
+
+def _proxy_client(system, proxy="http://user:pass@1.2.3.4:8080"):
+    c = BotClient.__new__(BotClient)
+    c.name = "acc"
+    c.proxy = proxy
+    c.config = FakeConfig(system)
+    c.logger = type("L", (), {"warning": lambda *a, **k: None,
+                              "info": lambda *a, **k: None,
+                              "error": lambda *a, **k: None})()
+    return c
+
+
+class TestProxyCheck(unittest.TestCase):
+    def test_disabled_skips(self):
+        c = _proxy_client({"proxy_check": False})
+        with patch("insta_bot.session.requests.get") as get:
+            c._check_proxy()
+            get.assert_not_called()
+
+    def test_success_logs_ip(self):
+        c = _proxy_client({"proxy_check": True})
+        with patch("insta_bot.session.requests.get") as get:
+            get.return_value = MagicMock(
+                headers={"content-type": "application/json"},
+                status_code=200)
+            get.return_value.json.return_value = {"ip": "9.9.9.9"}
+            get.return_value.raise_for_status = lambda: None
+            c._check_proxy()  # patlamamali
+            get.assert_called_once()
+
+    def test_failure_required_raises(self):
+        import requests
+        c = _proxy_client({"proxy_check": True, "proxy_required": True})
+        with patch("insta_bot.session.requests.get", side_effect=requests.RequestException("down")), \
+                self.assertRaises(AccountError):
+            c._check_proxy()
+
+    def test_failure_not_required_warns(self):
+        import requests
+        c = _proxy_client({"proxy_check": True, "proxy_required": False})
+        with patch("insta_bot.session.requests.get", side_effect=requests.RequestException("down")):
+            c._check_proxy()  # patlamamali
 
 
 class TestCallRetry(unittest.TestCase):

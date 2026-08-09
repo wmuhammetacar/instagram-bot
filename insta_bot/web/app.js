@@ -353,8 +353,66 @@ async function loadReport() {
       </tr></thead><tbody>${rows}</tbody></table></div>`;
     }).join("");
     $("#report-body").innerHTML = `<h3>Özet — ${rep.date}</h3>` + cards;
+
+    // Hesap seçicisini doldur (ilk yüklemede)
+    const accSel = $("#r-account");
+    if (!accSel.options.length) {
+      const data = statusData || await api("/api/status");
+      accSel.innerHTML = data.accounts.map((a) => `<option value="${esc(a.name)}">${esc(a.name)}</option>`).join("");
+    }
+    await Promise.all([loadHourly(), loadAnalytics()]);
   } catch (e) { toast("Rapor alınamadı: " + e.message, true); }
 }
+
+function renderBarChart(values, labels) {
+  const W = 720, H = 160, pad = 24;
+  const max = Math.max(1, ...values);
+  const bw = (W - pad * 2) / values.length;
+  const bars = values.map((v, i) => {
+    const h = Math.round((v / max) * (H - pad * 2));
+    const x = pad + i * bw;
+    const y = H - pad - h;
+    const lbl = labels ? labels[i] : i;
+    return `<rect x="${x + 1}" y="${y}" width="${bw - 2}" height="${h}" rx="2" fill="#6c5ce7">
+      <title>${lbl}: ${v}</title></rect>
+      ${i % 3 === 0 ? `<text x="${x + bw / 2}" y="${H - 6}" font-size="9" text-anchor="middle" fill="#9aa">${lbl}</text>` : ""}`;
+  }).join("");
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet">${bars}</svg>`;
+}
+
+async function loadHourly() {
+  const account = $("#r-account").value;
+  if (!account) return;
+  try {
+    const metric = $("#r-metric").value;
+    const res = await api(`/api/hourly?account=${encodeURIComponent(account)}&action_type=${metric}`);
+    const hours = res.hours || [];
+    const total = hours.reduce((a, b) => a + b, 0);
+    $("#hourly-chart").innerHTML = total
+      ? renderBarChart(hours, hours.map((_, i) => i))
+      : `<div class="muted">Bugün için ${metric} verisi yok.</div>`;
+  } catch (e) { toast("Saatlik veri alınamadı: " + e.message, true); }
+}
+
+async function loadAnalytics() {
+  const account = $("#r-account").value;
+  if (!account) return;
+  try {
+    const a = await api(`/api/analytics?account=${encodeURIComponent(account)}`);
+    const t = a.totals;
+    const rows = Object.entries(a.sources).map(([src, b]) => `<tr>
+      <td>${esc(src)}</td><td>${b.follows}</td><td>${b.followbacks}</td>
+      <td>${Math.round(b.rate * 100)}%</td></tr>`).join("");
+    $("#analytics-table").innerHTML = `<thead><tr>
+      <th>Kaynak</th><th>Takip</th><th>Geri-takip</th><th>Oran</th>
+    </tr></thead><tbody>${rows || `<tr><td colspan="4" class="muted">Veri yok</td></tr>`}
+      <tr class="total"><td><b>Toplam</b></td><td><b>${t.follows}</b></td>
+      <td><b>${t.followbacks}</b></td><td><b>${Math.round(t.rate * 100)}%</b></td></tr></tbody>`;
+  } catch (e) { toast("Analitik alınamadı: " + e.message, true); }
+}
+
 $("#r-refresh").onclick = loadReport;
+$("#r-account").onchange = () => { loadHourly(); loadAnalytics(); };
+$("#r-metric").onchange = loadHourly;
 
 refresh("overview");

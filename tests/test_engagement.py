@@ -139,6 +139,15 @@ class TestRunner(unittest.TestCase):
         date = datetime.now().strftime("%Y-%m-%d")
         self.assertEqual(self.repo.daily_limit("testacc", "likes", date), 2)
 
+    def test_follow_records_source_meta(self):
+        # Takip aksiyonu hedef kaynagini meta'ya yazmali (kaynak analitigi icin).
+        self.runner.engage(self.client, "testacc", hashtags=["test"], budget=1,
+                           like=False, comment=False)
+        rows = self.repo.actions_by_type("testacc", "follow")
+        self.assertEqual(len(rows), 1)
+        self.assertIsNotNone(rows[0]["meta"])
+        self.assertIn("source", rows[0]["meta"])
+
     def test_second_run_skips_processed(self):
         self.runner.engage(self.client, "testacc", hashtags=["test"], budget=10)
         self.client.calls.clear()
@@ -193,6 +202,24 @@ class TestRunner(unittest.TestCase):
         um_calls = [c for c in self.client.calls if c[0] == "user_medias"]
         self.assertEqual(len(um_calls), 1)
 
+    def test_humanize_views_profile_before_follow(self):
+        # humanize acikken takipten once user_info cagrilmali (insansi gezinme).
+        base = Path(self.tmp.name)
+        cfg_text = CONFIG_YAML + "\nhumanize:\n  enabled: true\n  view_profile_prob: 1.0\n  view_pause: [0, 0]\n"
+        (base / "config.yaml").write_text(cfg_text, encoding="utf-8")
+        config = Config(base)
+        runner = Runner(config, self.repo, self.runner.logger, dry_run=False)
+        with patch("insta_bot.engagement.time.sleep", return_value=None):
+            runner.engage(self.client, "testacc", hashtags=["test"], budget=1,
+                          like=False, comment=False)
+        self.assertIn("user_info", [c[0] for c in self.client.calls])
+
+    def test_humanize_disabled_no_user_info(self):
+        # Varsayilan (humanize kapali) -> user_info cagrilmaz.
+        self.runner.engage(self.client, "testacc", hashtags=["test"], budget=1,
+                           like=False, comment=False)
+        self.assertNotIn("user_info", [c[0] for c in self.client.calls])
+
     def test_dm_dedupe(self):
         self.runner.dm(self.client, "testacc", usernames=["ali", "ali"])
         self.assertEqual(self.repo.daily_limit("testacc", "dms",
@@ -241,6 +268,15 @@ class TestUnfollow(unittest.TestCase):
         summary = self.runner.unfollow(self.client, "testacc", grace_days=3, keep_followers=True)
         self.assertEqual(summary["unfollows"], 0)
         self.assertEqual(summary["kept"], 1)
+
+    def test_keep_records_followback(self):
+        # Geri takip tespit edilince donusum analitigi icin 'followback' kaydedilmeli.
+        self._seed_follow("11", days_ago=10)
+        self.client.friendships["11"] = SimpleNamespace(followed_by=True)
+        self.runner.unfollow(self.client, "testacc", grace_days=3, keep_followers=True)
+        self.assertTrue(self.repo.is_processed("testacc", "followback", "11"))
+        rows = self.repo.actions_by_type("testacc", "followback")
+        self.assertEqual(len(rows), 1)
 
     def test_not_reprocessed_after_unfollow(self):
         self._seed_follow("11", days_ago=10)

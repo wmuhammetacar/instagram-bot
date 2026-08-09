@@ -12,6 +12,11 @@ system:
   session_dir: "data/sessions"    # oturum dosyalari (hesap basina)
   # dashboard_token: ""           # bos ise web paneli korumasiz; uzak erisimde token tanimlayin
                                    # (IG_DASHBOARD_TOKEN ortam degiskeni de kullanilabilir)
+  locale: "tr_TR"                 # bolge tutarliligi (anti-tespit); proxy bolgesiyle uyumlu olmali
+  country: "TR"
+  timezone_offset: 10800          # saniye cinsinden UTC farki (TR = +3s = 10800)
+  proxy_check: true               # proxy tanimliysa baglanmadan once dogrula (cikis IP loglanir)
+  proxy_required: true            # proxy dogrulanamazsa dur (gercek IP sizmasin); false=uyar-devam
 
 # -----------------------------------------------------------
 # Gunluk butceler ve saatlik cap
@@ -67,6 +72,36 @@ targeting:
     keyword_hit: 40              # biyo anahtar kelime eslesmesi
     follower_balance: 30         # takipci sayisi optimum kurbeye yakinligi
     recency: 30                  # son aktivite tarihi
+
+# -----------------------------------------------------------
+# Bildirimler — challenge/kisit/hata olaylarinda operasyonel uyari
+#   Anahtarlar ortam degiskeninden de okunabilir:
+#     IG_TG_BOT_TOKEN, IG_TG_CHAT_ID, IG_DISCORD_WEBHOOK, IG_WEBHOOK_URL
+# -----------------------------------------------------------
+notifications:
+  enabled: false
+  events: ["challenge", "restriction", "error"]   # bos ise tum olaylar
+  # telegram: { bot_token: "", chat_id: "" }
+  # discord:  { webhook_url: "" }
+  # webhook:  { url: "" }
+
+# -----------------------------------------------------------
+# Kademeli isinma (warmup) — yeni hesaplari korumak icin
+#   Hesap yasi (ilk aksiyondan itibaren) `days` gune ulasana kadar gunluk
+#   limitler start_fraction'dan 1.0'a dogru kademeli acilir.
+# -----------------------------------------------------------
+warmup:
+  enabled: false                 # yeni hesaplarda true onerilir
+  days: 7                        # kac gunde tam limite cikilsin
+  start_fraction: 0.3            # ilk gun limitlerin bu orani (0.3 = %30)
+
+# -----------------------------------------------------------
+# Insansi davranis (humanize) — takipten once profili "goruntule"
+# -----------------------------------------------------------
+humanize:
+  enabled: false
+  view_profile_prob: 0.6         # takip edilecek profillerin bu oraninda user_info cekilir
+  view_pause: [2, 6]             # goruntuleme sonrasi kisa bekleme (sn)
 
 # -----------------------------------------------------------
 # Unfollow (geri takip etmeyenleri birakma) motoru

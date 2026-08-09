@@ -2,6 +2,40 @@
 
 Bu proje [Semantic Versioning](https://semver.org/lang/tr/) kurallarını takip eder.
 
+## [1.2.0] — 2026-08-09
+
+### Eklendi
+
+- **Anti-tespit — kademeli ısınma (warmup):** hesap yaşına göre günlük limitler
+  `start_fraction`'dan tam limite kademeli açılır (`config.yaml` `warmup`).
+- **Anti-tespit — insansı gezinme (humanize):** takipten önce belirli olasılıkla
+  profil görüntülenir (`user_info` + kısa bekleme) (`config.yaml` `humanize`).
+- **Anti-tespit — bölge tutarlılığı:** oturuma locale/country/timezone_offset
+  uygulanır (proxy bölgesiyle uyumlu olmalı; `system` veya hesap bazında).
+- **Bildirim sistemi:** challenge, kısıt (restriction) ve hata olaylarında
+  Telegram / Discord / genel webhook uyarısı (`config.yaml` `notifications`;
+  anahtarlar ortam değişkeninden de okunabilir). Bağlantı hataları yutulur,
+  ana akışı asla durdurmaz.
+- **Dönüşüm analitiği:** kaynak bazlı takip → geri-takip oranı. Takip aksiyonu
+  hedef kaynağını meta'ya yazar; unfollow akışı geri takip edeni `followback`
+  olarak kaydeder. `igbot analyze <hesap> [--since]`, `/api/analytics` ucu.
+- **Panel:** raporda saatlik dağılım SVG grafiği (hesap + metrik seçici) ve
+  kaynak dönüşüm tablosu.
+- **Dağıtım:** `Dockerfile`, `docker-compose.yml` (bot + dashboard servisleri),
+  `deploy/igbot.service` systemd birimi, `.dockerignore`.
+- **Proxy sağlık kontrolü:** bağlanmadan önce proxy doğrulanır ve çıkış IP'si
+  loglanır; doğrulanamazsa (varsayılan) bağlantı durur (`system.proxy_check`,
+  `system.proxy_required`).
+- **CI:** pytest-cov ile kapsam raporu.
+
+### Düzeltmeler
+
+- `merged_account` tabanına `unfollow` eklendi: `config.yaml` `unfollow` ayarları
+  önceden yok sayılıp yalnızca varsayılanlar kullanılıyordu.
+- `Repo.set_state` / `Repo.update_task` boş alanla çağrıldığında geçersiz SQL
+  (`SET  WHERE`) üretiyordu; artık no-op.
+- `bot.py` çıkışta veritabanı bağlantısını `atexit` ile kapatır.
+
 ## [1.1.0] — 2026-08-07
 
 ### Eklendi

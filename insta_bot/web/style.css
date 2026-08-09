@@ -140,3 +140,7 @@ td.bio { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
 .field .input { width: 100%; }
 .check-row { display: flex; gap: 16px; margin-bottom: 12px; }
 .check-row label { font-size: 13px; display: flex; align-items: center; gap: 6px; }
+
+.chart { width: 100%; overflow-x: auto; }
+.chart svg { display: block; }
+#analytics-table tr.total td { border-top: 2px solid var(--border); }

@@ -1,0 +1,27 @@
+services:
+  # Zamanlayici daemon (vadesi gelen gorevleri calistirir)
+  bot:
+    build: .
+    image: instagram-bot:latest
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./accounts.yaml:/app/accounts.yaml:ro
+      - ./data:/app/data
+    command: ["run"]
+
+  # Web kontrol paneli (opsiyonel). Uzak erisimde mutlaka dashboard_token tanimlayin
+  # ve bir ters proxy (TLS) arkasina alin.
+  dashboard:
+    image: instagram-bot:latest
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./accounts.yaml:/app/accounts.yaml:ro
+      - ./data:/app/data
+    command: ["dashboard", "--host", "0.0.0.0", "--port", "8787"]
+    ports:
+      - "127.0.0.1:8787:8787"

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "instagram-bot"
-version = "1.1.0"
+version = "1.2.0"
 description = "Profesyonel Instagram otomasyon sistemi: engajman, veri cekme, icerik paylasimi, zamanlayici ve web paneli"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -20,7 +20,7 @@ classifiers = [
 igbot = "bot:main"
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0", "httpx>=0.27", "ruff>=0.6"]  # httpx: FastAPI TestClient (test_api.py) icin
+dev = ["pytest>=7.0", "pytest-cov>=4.0", "httpx>=0.27", "ruff>=0.6"]  # httpx: FastAPI TestClient (test_api.py) icin
 
 [tool.setuptools]
 py-modules = ["bot"]

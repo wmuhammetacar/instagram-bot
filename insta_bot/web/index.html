@@ -80,9 +80,25 @@
   <section id="report" class="panel">
     <div class="toolbar">
       <input id="r-date" type="date" class="input">
+      <select id="r-account" class="input"></select>
+      <select id="r-metric" class="input">
+        <option value="follows">Takip</option>
+        <option value="unfollows">Bırakma</option>
+        <option value="likes">Beğeni</option>
+        <option value="comments">Yorum</option>
+        <option value="dms">DM</option>
+      </select>
       <button class="btn ghost" id="r-refresh">Yenile</button>
     </div>
     <div id="report-body"></div>
+    <div class="form-card">
+      <h3>Saatlik dağılım</h3>
+      <div id="hourly-chart" class="chart"></div>
+    </div>
+    <div class="form-card">
+      <h3>Kaynak dönüşümü (takip → geri-takip)</h3>
+      <div class="table-wrap"><table id="analytics-table"></table></div>
+    </div>
   </section>
 </main>
 

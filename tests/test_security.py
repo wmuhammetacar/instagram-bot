@@ -79,6 +79,43 @@ class TestLimitEngine(unittest.TestCase):
         self.assertFalse(self.engine.check("a", "likes") is None)
 
 
+class TestWarmup(unittest.TestCase):
+    def setUp(self):
+        self.repo = Repo(":memory:")
+
+    def _engine(self, **warmup):
+        cfg = dict(LIMITS_CFG)
+        cfg["warmup"] = {"enabled": True, "days": 10, "start_fraction": 0.2, **warmup}
+        return LimitEngine(cfg, self.repo)
+
+    def test_disabled_is_full(self):
+        eng = LimitEngine(LIMITS_CFG, self.repo)  # warmup yok
+        self.assertEqual(eng.daily_cap("follows", "a"), 60)
+        self.assertEqual(eng.warmup_factor("a"), 1.0)
+
+    def test_new_account_starts_reduced(self):
+        # Hic aksiyon yok -> gun 0 -> start_fraction (0.2). 60 * 0.2 = 12.
+        eng = self._engine()
+        self.assertEqual(eng.daily_cap("follows", "a"), 12)
+
+    def test_ramps_with_age(self):
+        # 5 gun once ilk aksiyon -> yolun yarisi -> 0.2 + 0.8*0.5 = 0.6 -> 36.
+        old = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time() - 5 * 86400))
+        self.repo._exec(
+            "INSERT INTO actions (account, action_type, target, status, created_at) "
+            "VALUES ('a','follow','1','ok',?)", (old,))
+        eng = self._engine()
+        self.assertEqual(eng.daily_cap("follows", "a"), 36)
+
+    def test_full_after_ramp(self):
+        old = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time() - 30 * 86400))
+        self.repo._exec(
+            "INSERT INTO actions (account, action_type, target, status, created_at) "
+            "VALUES ('a','follow','1','ok',?)", (old,))
+        eng = self._engine()
+        self.assertEqual(eng.daily_cap("follows", "a"), 60)
+
+
 class TestCooldownRegistry(unittest.TestCase):
     def test_set_and_expire(self):
         repo = Repo(":memory:")
