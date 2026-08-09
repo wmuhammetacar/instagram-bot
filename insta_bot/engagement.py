@@ -107,7 +107,7 @@ class Runner:
                 if self._perform(client, "user_follow", pk,
                                  account_name=account_name, limit_key="follows", action_key="follow",
                                  target_pk=pk, delays=delays, limits=limits, actions_done=done,
-                                 cooldowns=cooldowns):
+                                 cooldowns=cooldowns, meta={"source": target.get("source")}):
                     summary["follows"] += 1
                     followed_set.add(pk)
                     actions_taken += 1
@@ -141,7 +141,7 @@ class Runner:
         return summary
 
     def _perform(self, client, fn, *args, account_name, limit_key, action_key, target_pk,
-                 delays, limits, actions_done=0, cooldowns=None):
+                 delays, limits, actions_done=0, cooldowns=None, meta=None):
         if self.dry_run:
             self.logger.info(f"[KURU CALISMA] [{account_name}] {action_key} -> {args[0]}")
             return True
@@ -161,7 +161,7 @@ class Runner:
                 self.notifier.notify("restriction", f"[{account_name}] kisit algilandi ({fn}): {exc}")
             self.repo.record_action(account_name, action_key, target_pk, "fail", str(exc))
             return False
-        self.repo.record_action(account_name, action_key, target_pk, "ok")
+        self.repo.record_action(account_name, action_key, target_pk, "ok", meta=meta)
         self.repo.mark_processed(account_name, action_key, target_pk)
         limits.consume(account_name, limit_key)
         delays.pause(action_key, actions_done, logger=self.logger)
@@ -279,6 +279,10 @@ class Runner:
                     friendship = client.call("user_friendship", pk)
                     if getattr(friendship, "followed_by", False):
                         summary["kept"] += 1
+                        # Geri takip etti: donusum analitigi icin bir kez kaydet.
+                        if not self.repo.is_processed(account_name, "followback", pk):
+                            self.repo.record_action(account_name, "followback", pk, "ok")
+                            self.repo.mark_processed(account_name, "followback", pk)
                         continue
                 except (UserNotFound, ClientError) as exc:
                     self.logger.warning(f"[{account_name}] @{pk} iliskisi alinamadi, atlaniyor: {exc}")

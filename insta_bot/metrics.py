@@ -34,6 +34,42 @@ class Metrics:
             result[name] = types
         return {"date": date, "accounts": result}
 
+    def analytics(self, account, since=None):
+        """Kaynak bazli takip -> geri-takip donusumu. Geri-takip, unfollow akisinda
+        (keep_followers) tespit edilip 'followback' aksiyonu olarak kaydedilir."""
+        import json as _json
+        follows = self.repo.actions_by_type(account, "follow", since)
+        followbacks = self.repo.actions_by_type(account, "followback", since)
+        fb_targets = {r["target"] for r in followbacks}
+
+        sources = {}
+        for row in follows:
+            src = "bilinmiyor"
+            if row.get("meta"):
+                try:
+                    src = (_json.loads(row["meta"]) or {}).get("source") or "bilinmiyor"
+                except (ValueError, TypeError):
+                    pass
+            bucket = sources.setdefault(src, {"follows": 0, "followbacks": 0})
+            bucket["follows"] += 1
+            if row["target"] in fb_targets:
+                bucket["followbacks"] += 1
+        for bucket in sources.values():
+            bucket["rate"] = (round(bucket["followbacks"] / bucket["follows"], 3)
+                              if bucket["follows"] else 0.0)
+
+        total_f = sum(b["follows"] for b in sources.values())
+        total_fb = sum(b["followbacks"] for b in sources.values())
+        return {
+            "account": account,
+            "sources": dict(sorted(sources.items(), key=lambda kv: kv[1]["follows"], reverse=True)),
+            "totals": {
+                "follows": total_f,
+                "followbacks": total_fb,
+                "rate": round(total_fb / total_f, 3) if total_f else 0.0,
+            },
+        }
+
     def hourly_series(self, account, date=None, action_type="follows"):
         date = date or time.strftime("%Y-%m-%d")
         # Cagiran cogul ('follows') veya tekil ('follow') gonderebilir; actions

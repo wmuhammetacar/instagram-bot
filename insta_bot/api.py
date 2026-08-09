@@ -249,6 +249,10 @@ def create_app(config, repo):
     def api_report(date: str = None):
         return metrics.daily_summary(date)
 
+    @app.get("/api/analytics")
+    def api_analytics(account: str, since: str = None):
+        return metrics.analytics(account, since=since)
+
     @app.get("/api/tasks")
     def api_tasks():
         return repo.list_tasks()

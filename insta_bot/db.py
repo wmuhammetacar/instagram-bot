@@ -267,6 +267,15 @@ class Repo:
         sql += " GROUP BY action_type, status"
         return self._query(sql, params)
 
+    def actions_by_type(self, account, action_type, since=None):
+        sql = ("SELECT target, meta, created_at FROM actions "
+               "WHERE account=? AND action_type=? AND status='ok'")
+        params = [account, action_type]
+        if since:
+            sql += " AND created_at>=?"
+            params.append(since)
+        return self._query(sql, params)
+
     def hourly_actions(self, account, date, action_type):
         # actions tablosunda ayri 'hour' sutunu yok; saati created_at'ten turetiyoruz
         # (format: "YYYY-MM-DD HH:MM:SS" -> 12. karakterden itibaren 2 hane).

@@ -137,6 +137,10 @@ def build_parser():
     s_report.add_argument("--date")
     s_report.add_argument("--out")
 
+    s_analyze = sub.add_parser("analyze", help="Kaynak bazli takip->geri-takip donusumu")
+    s_analyze.add_argument("account")
+    s_analyze.add_argument("--since", help="YYYY-MM-DD (bu tarihten itibaren)")
+
     return p
 
 
@@ -291,6 +295,23 @@ def main(argv=None):
 
     if cmd == "report":
         print(Metrics(config, repo, logger).write_report(date=args.date, out=args.out))
+        return
+
+    if cmd == "analyze":
+        since = f"{args.since} 00:00:00" if args.since else None
+        data = Metrics(config, repo, logger).analytics(args.account, since=since)
+        t = data["totals"]
+        print(f"\n[{args.account}] Takip -> Geri-takip donusumu"
+              f"{' (>= ' + args.since + ')' if args.since else ''}")
+        print(f"Toplam: {t['follows']} takip, {t['followbacks']} geri-takip, "
+              f"oran %{round(t['rate'] * 100, 1)}\n")
+        if data["sources"]:
+            print(f"{'Kaynak':<28} {'Takip':>7} {'Geri':>6} {'Oran':>7}")
+            for src, b in data["sources"].items():
+                print(f"{src[:28]:<28} {b['follows']:>7} {b['followbacks']:>6} "
+                      f"%{round(b['rate'] * 100, 1):>5}")
+        else:
+            print("Henuz takip verisi yok.")
         return
 
 

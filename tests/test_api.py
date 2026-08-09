@@ -93,6 +93,15 @@ class TestApiAuth(unittest.TestCase):
         self.assertIn("unfollows", acc["limits"])
         self.assertGreater(acc["limits"]["unfollows"], 0)  # follows'tan turetilir
 
+    def test_analytics_open_and_shaped(self):
+        # Salt-okunur uc; token gerekmez, beklenen alanlari dondurur.
+        c = self._client("secret")
+        r = c.get("/api/analytics?account=a")
+        self.assertEqual(r.status_code, 200)
+        body = r.json()
+        self.assertIn("totals", body)
+        self.assertIn("sources", body)
+
     def test_unfollow_requires_token(self):
         c = self._client("secret")
         r = c.post("/api/unfollow", json={"account": "a"})

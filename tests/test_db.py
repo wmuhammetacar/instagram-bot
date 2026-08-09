@@ -65,6 +65,14 @@ class TestRepo(unittest.TestCase):
         self.assertEqual(series[14], 1)
         self.assertEqual(sum(series), 3)
 
+    def test_actions_by_type_with_meta(self):
+        self.repo.record_action("a", "follow", "1", "ok", meta={"source": "hashtag:python"})
+        self.repo.record_action("a", "follow", "2", "ok")
+        self.repo.record_action("a", "like", "3", "ok")
+        rows = self.repo.actions_by_type("a", "follow")
+        self.assertEqual(len(rows), 2)
+        self.assertTrue(any(r["meta"] and "python" in r["meta"] for r in rows))
+
     def test_hourly_series_normalizes_plural(self):
         # Regresyon: panel/metrics cogul ('follows') gonderir, actions tekil ('follow')
         # saklar; hourly_series normalize etmezse hep 0 doner.

@@ -16,6 +16,11 @@ Bu proje [Semantic Versioning](https://semver.org/lang/tr/) kurallarını takip 
   Telegram / Discord / genel webhook uyarısı (`config.yaml` `notifications`;
   anahtarlar ortam değişkeninden de okunabilir). Bağlantı hataları yutulur,
   ana akışı asla durdurmaz.
+- **Dönüşüm analitiği:** kaynak bazlı takip → geri-takip oranı. Takip aksiyonu
+  hedef kaynağını meta'ya yazar; unfollow akışı geri takip edeni `followback`
+  olarak kaydeder. `igbot analyze <hesap> [--since]`, `/api/analytics` ucu.
+- **Panel:** raporda saatlik dağılım SVG grafiği (hesap + metrik seçici) ve
+  kaynak dönüşüm tablosu.
 
 ### Düzeltmeler
 
