@@ -72,6 +72,18 @@ targeting:
     recency: 30                  # son aktivite tarihi
 
 # -----------------------------------------------------------
+# Bildirimler — challenge/kisit/hata olaylarinda operasyonel uyari
+#   Anahtarlar ortam degiskeninden de okunabilir:
+#     IG_TG_BOT_TOKEN, IG_TG_CHAT_ID, IG_DISCORD_WEBHOOK, IG_WEBHOOK_URL
+# -----------------------------------------------------------
+notifications:
+  enabled: false
+  events: ["challenge", "restriction", "error"]   # bos ise tum olaylar
+  # telegram: { bot_token: "", chat_id: "" }
+  # discord:  { webhook_url: "" }
+  # webhook:  { url: "" }
+
+# -----------------------------------------------------------
 # Kademeli isinma (warmup) — yeni hesaplari korumak icin
 #   Hesap yasi (ilk aksiyondan itibaren) `days` gune ulasana kadar gunluk
 #   limitler start_fraction'dan 1.0'a dogru kademeli acilir.

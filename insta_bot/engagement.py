@@ -10,6 +10,7 @@ from instagrapi.exceptions import (
     UserNotFound,
 )
 
+from insta_bot.notify import Notifier
 from insta_bot.security import CooldownRegistry, DelayEngine, LimitEngine, in_window
 from insta_bot.targeting import TargetEngine
 
@@ -24,6 +25,7 @@ class Runner:
         self.repo = repo
         self.logger = logger
         self.dry_run = dry_run
+        self.notifier = Notifier(config, logger)
 
     def _engine(self, account_name):
         cfg = self.config.merged_account(account_name)
@@ -156,6 +158,7 @@ class Runner:
                 if cooldowns is not None:
                     cooldowns.set(account_name, "restriction", 6 * 3600, f"{fn}: {exc}")
                 self.logger.warning(f"[{account_name}] Kisit algilandi, 6 saatlik bekleme basladi: {exc}")
+                self.notifier.notify("restriction", f"[{account_name}] kisit algilandi ({fn}): {exc}")
             self.repo.record_action(account_name, action_key, target_pk, "fail", str(exc))
             return False
         self.repo.record_action(account_name, action_key, target_pk, "ok")
@@ -185,6 +188,7 @@ class Runner:
         msg = str(exc).lower()
         if any(h in msg for h in RESTRICTION_HINTS):
             cooldowns.set(account_name, "restriction", 6 * 3600, f"target-error: {exc}")
+            self.notifier.notify("restriction", f"[{account_name}] kisit algilandi (hedef @{pk}): {exc}")
         self.logger.warning(f"[{account_name}] Hedef @{pk} hatasi: {exc}")
         self.repo.set_target_status(account_name, pk, "skipped")
         summary["errors"] += 1

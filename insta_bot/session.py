@@ -14,6 +14,8 @@ from instagrapi.exceptions import (
     TwoFactorRequired,
 )
 
+from insta_bot.notify import Notifier
+
 TRANSIENT = (PleaseWaitFewMinutes, RateLimitError, ClientThrottledError)
 
 
@@ -39,6 +41,7 @@ class BotClient:
         self.session_file = self.session_dir / "session.json"
         self.cl = None
         self.connected_at = None
+        self.notifier = Notifier(config, logger)
 
     def connect(self, force=False, challenge_callback=None, verification_callback=None):
         if not self.username or not self.password:
@@ -91,6 +94,9 @@ class BotClient:
             cl.login(self.username, self.password, verification_code=code)
         except ChallengeRequired as exc:
             self.repo.set_state(self.name, needs_challenge=1, last_error="challenge")
+            self.notifier.notify(
+                "challenge",
+                f"[{self.name}] Instagram challenge istedi; terminalde 'python bot.py login {self.name}' calistir.")
             raise ChallengePending(
                 f"[{self.name}] Instagram challenge istedi. Terminalde 'python bot.py login {self.name}' calistir."
             ) from exc

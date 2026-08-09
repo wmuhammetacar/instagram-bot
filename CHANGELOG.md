@@ -12,6 +12,10 @@ Bu proje [Semantic Versioning](https://semver.org/lang/tr/) kurallarını takip 
   profil görüntülenir (`user_info` + kısa bekleme) (`config.yaml` `humanize`).
 - **Anti-tespit — bölge tutarlılığı:** oturuma locale/country/timezone_offset
   uygulanır (proxy bölgesiyle uyumlu olmalı; `system` veya hesap bazında).
+- **Bildirim sistemi:** challenge, kısıt (restriction) ve hata olaylarında
+  Telegram / Discord / genel webhook uyarısı (`config.yaml` `notifications`;
+  anahtarlar ortam değişkeninden de okunabilir). Bağlantı hataları yutulur,
+  ana akışı asla durdurmaz.
 
 ### Düzeltmeler
 
